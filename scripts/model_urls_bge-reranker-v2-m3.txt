@@ -1,0 +1,22 @@
+# BAAI/bge-reranker-v2-m3 —— 精排模型（CrossEncoder，RAG 通用基础件）
+# 镜像源：hf-mirror.com（huggingface.co 本机直连不通）
+# 已验证：支持 Range 请求（返回 206），可多线程分块下载
+#
+# 下载到：D:\Myprojects\agentic-rag-finance\models\bge-reranker-v2-m3\
+# 该仓库无子目录，6 个文件平铺即可
+#
+# 必需文件合计约 2.3 GB（大文件：model.safetensors 2165.9 MiB）
+#
+# 说明：优先级低于 bge-m3。没有它 RAG 也能跑通（只是召回精度损失约 10-20%）。
+#       建议先下 bge-m3，跑通主链路后再补这个。
+
+https://hf-mirror.com/BAAI/bge-reranker-v2-m3/resolve/main/model.safetensors
+https://hf-mirror.com/BAAI/bge-reranker-v2-m3/resolve/main/tokenizer.json
+https://hf-mirror.com/BAAI/bge-reranker-v2-m3/resolve/main/sentencepiece.bpe.model
+https://hf-mirror.com/BAAI/bge-reranker-v2-m3/resolve/main/config.json
+https://hf-mirror.com/BAAI/bge-reranker-v2-m3/resolve/main/tokenizer_config.json
+https://hf-mirror.com/BAAI/bge-reranker-v2-m3/resolve/main/special_tokens_map.json
+
+# ============================================================
+# 不需要下载：assets/*（评测榜单配图）、README.md、.gitattributes
+# ============================================================

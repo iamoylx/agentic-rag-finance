@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic RAG · 财报问答</title>
+<style>
+  /* iOS 玻璃拟态：黑白灰单色调。浅色玻璃面板浮在深色渐变底上 */
+  :root {
+    --glass: rgba(255,255,255,0.08);
+    --glass-border: rgba(255,255,255,0.16);
+    --text: #e8e8ea;
+    --text-dim: #9a9aa2;
+    --accent: #ffffff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg,#0c0c10 0%,#1a1a22 45%,#101018 100%);
+    color: var(--text); height:100vh; overflow:hidden;
+  }
+  /* 背景水波纹装饰 */
+  .wave { position:fixed; border-radius:50%; border:1px solid rgba(255,255,255,0.05); pointer-events:none; }
+  .w1 { width:640px;height:640px; top:-200px; right:-160px; }
+  .w2 { width:460px;height:460px; top:-120px; right:-60px; }
+  .w3 { width:300px;height:300px; bottom:-100px; left:-80px; }
+  .w4 { width:180px;height:180px; bottom:-40px; left:-20px; }
+
+  .layout { display:grid; grid-template-columns: 230px 1fr 300px; gap:14px; height:100vh; padding:14px; position:relative; z-index:1;}
+  .panel {
+    background: var(--glass); border:1px solid var(--glass-border);
+    border-radius:20px; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .panel h2 { font-size:12px; font-weight:600; color:var(--text-dim); letter-spacing:2px; padding:16px 18px 10px; text-transform:uppercase;}
+  .panel .body { flex:1; overflow-y:auto; padding:0 14px 14px; }
+  .panel .body::-webkit-scrollbar { width:4px; }
+  .panel .body::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:2px; }
+
+  .chip {
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+    border-radius:12px; padding:10px 12px; font-size:12px; margin-bottom:8px; line-height:1.5;
+  }
+  .chip b { display:block; font-size:12.5px; font-weight:600; margin-bottom:2px; }
+  .chip .dim { color:var(--text-dim); }
+
+  /* 中间对话区 */
+  #chat { display:flex; flex-direction:column; }
+  #messages { flex:1; overflow-y:auto; padding:18px; }
+  #messages::-webkit-scrollbar { width:4px; }
+  #messages::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:2px; }
+  .msg { margin-bottom:16px; max-width:82%; }
+  .msg .role { font-size:11px; color:var(--text-dim); margin-bottom:4px; letter-spacing:1px; }
+  .msg .bubble {
+    padding:12px 16px; border-radius:16px; font-size:14px; line-height:1.7; white-space:pre-wrap;
+  }
+  .msg.user { margin-left:auto; }
+  .msg.user .bubble { background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.2); }
+  .msg.bot .bubble { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); }
+  .cites { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
+  .cite {
+    font-size:11px; padding:3px 10px; border-radius:999px; cursor:pointer;
+    background:rgba(255,255,255,0.09); border:1px solid rgba(255,255,255,0.18); color:var(--text);
+    transition: all .2s;
+  }
+  .cite:hover { background:rgba(255,255,255,0.2); }
+  .cite.pop { animation: pop .5s; }
+  @keyframes pop { 0%{transform:scale(1)} 40%{transform:scale(1.25)} 100%{transform:scale(1)} }
+
+  .composer { padding:14px; border-top:1px solid rgba(255,255,255,0.08); display:flex; gap:10px; }
+  .composer input {
+    flex:1; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14);
+    border-radius:12px; padding:12px 16px; color:var(--text); font-size:14px; outline:none;
+  }
+  .composer input::placeholder { color:var(--text-dim); }
+  .composer input:focus { border-color:rgba(255,255,255,0.35); }
+  .composer button {
+    background:#fff; color:#111; border:none; border-radius:12px; padding:0 22px;
+    font-size:14px; font-weight:600; cursor:pointer; transition:opacity .2s;
+  }
+  .composer button:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* 右侧轨迹 */
+  .step { display:flex; gap:10px; margin-bottom:2px; }
+  .step .dot { width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.3); margin-top:6px; flex-shrink:0; }
+  .step.on .dot { background:#fff; box-shadow:0 0 8px rgba(255,255,255,0.8); }
+  .step .line { border-left:1px solid rgba(255,255,255,0.12); flex:1; padding:0 0 14px 12px; }
+  .step:last-child .line { border-left:none; }
+  .step .t { font-size:12px; line-height:1.6; }
+  .step .n { font-size:10.5px; color:var(--text-dim); letter-spacing:1px; text-transform:uppercase; }
+  .badge { display:inline-block; font-size:10px; padding:1px 8px; border-radius:999px; background:rgba(255,255,255,0.12); margin-left:6px; }
+  .badge.bad { background:rgba(255,120,120,0.25); }
+  .cursor { display:inline-block; width:2px; height:14px; background:#fff; animation: blink 1s infinite; vertical-align:middle; }
+  @keyframes blink { 50% { opacity:0; } }
+</style>
+</head>
+<body>
+<div class="wave w1"></div><div class="wave w2"></div><div class="wave w3"></div><div class="wave w4"></div>
+
+<div class="layout">
+  <!-- 左：文档 + 会话 -->
+  <div class="panel">
+    <h2>Documents</h2>
+    <div class="body" id="docs"></div>
+    <h2>Sessions</h2>
+    <div class="body" id="sessions"></div>
+  </div>
+
+  <!-- 中：对话 -->
+  <div class="panel" id="chat">
+    <h2 style="text-align:center">Agentic RAG · 财报研报问答</h2>
+    <div id="messages"></div>
+    <div class="composer">
+      <input id="q" placeholder="问点什么，比如：2025年研发投入占比是多少？回车发送" autofocus>
+      <button id="send">发送</button>
+    </div>
+  </div>
+
+  <!-- 右：Agent 轨迹 -->
+  <div class="panel">
+    <h2>Agent Trace</h2>
+    <div class="body" id="trace"></div>
+  </div>
+</div>
+
+<script>
+const API = "http://127.0.0.1:8300";
+let sessionId = "web-" + Math.random().toString(36).slice(2, 8);
+let busy = false;
+
+const $ = id => document.getElementById(id);
+
+async function loadMeta() {
+  try {
+    const h = await (await fetch(API + "/health")).json();
+    const d = await (await fetch(API + "/api/documents")).json();
+    $("docs").innerHTML = d.documents.map(x =>
+      `<div class="chip"><b>${x.source}</b><span class="dim">${x.pages} 页 · ${x.chunks} 块 · 引擎${h.engine_ready ? "就绪" : "加载中"} · LLM=${h.llm_provider}</span></div>`
+    ).join("") || '<div class="chip dim">暂无文档</div>';
+  } catch(e) { $("docs").innerHTML = '<div class="chip">⚠️ 后端未启动：' + e + '</div>'; }
+  addSession(sessionId);
+}
+function addSession(sid) {
+  if ([...$("sessions").children].some(c => c.dataset.sid === sid)) return;
+  const el = document.createElement("div");
+  el.className = "chip"; el.dataset.sid = sid;
+  el.innerHTML = `<b>${sid}</b><span class="dim">当前会话</span>`;
+  el.onclick = () => { sessionId = sid; };
+  $("sessions").prepend(el);
+}
+
+function bubble(role, text) {
+  const el = document.createElement("div");
+  el.className = "msg " + role;
+  el.innerHTML = `<div class="role">${role === "user" ? "You" : "Agent"}</div><div class="bubble"></div>`;
+  el.querySelector(".bubble").textContent = text;
+  $("messages").appendChild(el);
+  $("messages").scrollTop = 1e9;
+  return el;
+}
+function addCites(container, cits) {
+  const box = document.createElement("div");
+  box.className = "cites";
+  cits.forEach(c => {
+    const b = document.createElement("span");
+    b.className = "cite";
+    b.textContent = c.source === "web" ? "#网络来源"
+      : "#" + (c.source || "doc").replace(/\.pdf$/,"").slice(0, 10) + " · p" + c.page;
+    b.title = c.snippet || "";
+    b.onclick = () => { b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop"); };
+    box.appendChild(b);
+  });
+  container.appendChild(box);
+  $("messages").scrollTop = 1e9;
+}
+let lastStep = null;
+function traceStep(node, text, cls) {
+  // 同一节点连续多次事件合并进同一行（如 retrieve 第1/2轮），换节点则另起一行
+  if (lastStep && lastStep.dataset.node === node && lastStep.dataset.done !== "1") {
+    lastStep.querySelector(".t").innerHTML = text;
+  } else {
+    if (lastStep) lastStep.dataset.done = "1";
+    const el = document.createElement("div");
+    el.className = "step" + (cls ? " " + cls : ""); el.dataset.node = node;
+    el.innerHTML = `<div class="dot"></div><div class="line"><div class="n">${node}</div><div class="t"></div></div>`;
+    el.querySelector(".t").innerHTML = text;
+    $("trace").appendChild(el);
+    lastStep = el;
+  }
+  $("trace").scrollTop = 1e9;
+}
+
+async function send() {
+  const q = $("q").value.trim();
+  if (!q || busy) return;
+  busy = true; $("send").disabled = true; $("q").value = ""; $("trace").innerHTML = "";
+  bubble("user", q);
+  const bot = bubble("bot", "");
+  const bub = bot.querySelector(".bubble");
+  bub.innerHTML = '<span class="cursor"></span>';
+  const cits = []; let answer = "";
+
+  try {
+    const resp = await fetch(API + "/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: q, session_id: sessionId }),
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const frames = buf.split("\n\n"); buf = frames.pop();
+      for (const f of frames) {
+        const ev = (f.match(/^event: (.+)$/m) || [])[1];
+        const dataRaw = (f.match(/^data: (.+)$/m) || [])[1];
+        if (!ev || !dataRaw) continue;
+        const data = JSON.parse(dataRaw);
+        if (ev === "route") {
+          traceStep("route", `路由=<b>${data.route}</b>${data.query !== q ? "，独立化→" + data.query : ""}`, "on");
+        } else if (ev === "trace") {
+          document.querySelectorAll(".step.on").forEach(s => s.classList.remove("on"));
+          traceStep(data.node, data.msg, "on");
+        } else if (ev === "status" && data.node === "check") {
+          traceStep("check_hallucination",
+            (data.passed ? "数值校验通过" : "数值校验失败，触发重生成") +
+            `<span class="badge ${data.passed ? "" : "bad"}">${data.passed ? "PASS" : "REGEN"}</span>`);
+        } else if (ev === "token") {
+          answer += data.t;
+          bub.textContent = answer;
+          $("messages").scrollTop = 1e9;
+        } else if (ev === "citation") {
+          cits.push(data);
+        } else if (ev === "done") {
+          addCites(bot, cits);
+          bot.querySelector(".role").textContent = "Agent · " + data.elapsed_ms + "ms" + (data.cached ? " · 缓存命中" : "");
+        } else if (ev === "error") {
+          bub.textContent = "⚠️ " + data.message;
+        }
+      }
+    }
+    if (!answer && !cits.length) bub.textContent = bub.textContent || "（无返回）";
+  } catch (e) {
+    bub.textContent = "⚠️ 请求失败：" + e + "（请确认后端已启动 run_api.py）";
+  }
+  busy = false; $("send").disabled = false; $("q").focus();
+}
+$("send").onclick = send;
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+loadMeta();
+</script>
+</body>
+</html>

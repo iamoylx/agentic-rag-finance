@@ -1,0 +1,27 @@
+# BAAI/bge-m3 —— 文本向量化模型（RAG 通用基础件，非财报专用，长期可复用）
+# 镜像源：hf-mirror.com（huggingface.co 本机直连不通）
+# 已验证：支持 Range 请求（返回 206），IDM / 迅雷 / aria2 均可多线程分块下载
+#
+# 下载到：D:\Myprojects\agentic-rag-finance\models\bge-m3\
+# 注意：保持文件名与子目录结构（1_Pooling/ 是子目录）
+#
+# 必需文件合计约 2.3 GB（大文件：pytorch_model.bin 2165.9 MiB）
+
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/pytorch_model.bin
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/tokenizer.json
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/sentencepiece.bpe.model
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/config.json
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/tokenizer_config.json
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/special_tokens_map.json
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/modules.json
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/sentence_bert_config.json
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/config_sentence_transformers.json
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/colbert_linear.pt
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/sparse_linear.pt
+https://hf-mirror.com/BAAI/bge-m3/resolve/main/1_Pooling/config.json
+
+# ============================================================
+# 不需要下载（省 2.3GB）：
+#   onnx/*      —— ONNX 运行时专用，我们用 PyTorch，不需要
+#   imgs/*、*.jpg、README.md —— 文档与配图
+# ============================================================

@@ -1,0 +1,24 @@
+# 环境与依赖
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# 密钥（真实值永不入库；模板见 .env.example）
+.env
+
+# 大文件
+models/
+data/raw/
+data/parsed/
+data/chroma/
+*.pdf
+
+# 前端
+web/node_modules/
+web/dist/
+
+# 日志与临时
+logs/
+.tmp/

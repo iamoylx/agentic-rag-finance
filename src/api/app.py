@@ -1,0 +1,235 @@
+"""
+FastAPI 服务层（P1-S6）：SSE 流式问答 + 入库 + 会话历史 + 健康检查。
+
+语法：FastAPI lifespan 管理引擎生命周期；sse-starlette 的 EventSourceResponse
+     把 async generator 的产出逐条推给浏览器（text/event-stream）。
+原理：
+  - 流式打字机的关键在 graph.astream(stream_mode=["updates","messages"])：
+    「updates」给出每个节点返回的状态增量（路由决策 / 检索轮次 / 校验结果），
+    「messages」给出 LLM 的 token 增量（靠 on_llm_new_token 回调），
+    两条流合并翻译成 SSE 事件：route / status / trace / token / citation / done / error。
+  - 把中间过程可视化是演示杀手锏——面试官能看到 Agent 在思考、检索、自我纠正。
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import time
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from sse_starlette.sse import EventSourceResponse
+
+from src.api.engine import engine
+from src.api.schemas import ChatRequest, HealthResponse, IngestRequest
+from src.core.config import settings
+
+# 进程内会话历史（MySQL 持久化在后续 Stage 接入，接口保持不变）
+_HISTORY: dict[str, list[dict]] = {}
+
+# 会产生「最终答案」token 的节点；路由/打分/改写节点的 LLM 输出不应混进答案流
+_ANSWER_NODES = {"generate", "direct_answer", "fallback_answer"}
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """启动时冷加载模型与索引（约 6-10 秒），关闭时无需清理。"""
+    if not engine.ready:
+        await asyncio.to_thread(engine.startup)   # to_thread：别阻塞事件循环
+    yield
+
+
+app = FastAPI(title="Agentic RAG for Finance", version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # 开发期放开；上生产改白名单
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def _sse(event: str, data: dict) -> dict:
+    """统一 SSE 帧格式；ensure_ascii=False 保证中文原样传输。"""
+    return {"event": event, "data": json.dumps(data, ensure_ascii=False)}
+
+
+def _citations(final_state: dict) -> list[dict]:
+    """从最终 state 的 documents 提取去重引用；年报块带页码，网络来源块标记 page=-1。"""
+    seen, out = set(), []
+    for d in final_state.get("documents", []):
+        is_web = d.metadata.get("block_type") == "web"
+        key = ("web", -1) if is_web else (d.metadata.get("source", ""), d.metadata.get("page", -1))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"source": "web" if is_web else key[0], "page": key[1],
+                    "snippet": d.page_content[:80]})
+    return out
+
+
+async def _chat_gen(req: ChatRequest):
+    """SSE 主生成器：缓存命中走快路，否则跑图并把两条内部流翻译成 SSE。"""
+    t0 = time.time()
+    thread_id = req.session_id
+
+    # ---------- 快路：高频问题缓存（会话首轮才查，避免多轮追问误命中）----------
+    fresh_session = not _HISTORY.get(thread_id)
+    cached = engine.cache_get(req.question) if fresh_session else None
+    if cached:
+        yield _sse("route", {"route": "cache", "query": req.question})
+        for piece in cached["citations"]:
+            yield _sse("citation", piece)
+        for chunk in _split_tokens(cached["answer"]):
+            yield _sse("token", {"t": chunk})
+        yield _sse("done", {"answer": cached["answer"], "cached": True,
+                            "elapsed_ms": int((time.time() - t0) * 1000)})
+        _HISTORY.setdefault(thread_id, []).append(
+            {"q": req.question, "a": cached["answer"], "elapsed_ms": 0, "ts": time.time()}
+        )
+        return
+
+    # ---------- 慢路：完整跑图 ----------
+    init_state = {"question": req.question, "query_used": req.question,
+                  "history": _HISTORY.get(thread_id, []),
+                  "retrieve_rounds": 0, "rewrite_count": 0, "regen_count": 0,
+                  "web_used": False, "trace": []}
+    config = {"configurable": {"thread_id": thread_id}}
+    sent_tokens, answer_text, final_state = 0, "", {}
+
+    try:
+        stream = engine.graph.astream(init_state, config=config,
+                                      stream_mode=["updates", "messages"])
+        async for mode, payload in stream:
+            if mode == "updates":
+                # payload 形如 {节点名: 该节点返回的状态增量}
+                for node, update in payload.items():
+                    for line in update.get("trace", []):
+                        yield _sse("trace", {"node": node, "msg": line})
+                    if node == "route_query" and "route" in update:
+                        yield _sse("route", {"route": update["route"],
+                                             "query": update.get("query_used", req.question)})
+                    elif node == "retrieve":
+                        yield _sse("status", {"node": "retrieve",
+                                              "round": update.get("retrieve_rounds"),
+                                              "hits": len(update.get("documents", []))})
+                    elif node == "grade_documents":
+                        yield _sse("status", {"node": "grade",
+                                              "kept": len(update.get("documents", []))})
+                    elif node == "rewrite_query":
+                        yield _sse("status", {"node": "rewrite",
+                                              "query": update.get("query_used", "")})
+                    elif node == "web_search":
+                        yield _sse("status", {"node": "web_search"})
+                    elif node == "check_hallucination":
+                        yield _sse("status", {"node": "check",
+                                              "passed": update.get("hallucination_passed")})
+            elif mode == "messages":
+                # payload 形如 (AIMessageChunk, metadata)，metadata.langgraph_node 标明来源节点
+                msg, meta = payload
+                content = msg.content if isinstance(msg.content, str) else ""
+                if meta.get("langgraph_node") in _ANSWER_NODES and content:
+                    sent_tokens += len(content)
+                    answer_text += content
+                    yield _sse("token", {"t": content})
+
+        # 兜底：个别 OpenAI 兼容网关不支持流式回调 → 一次性补发完整答案
+        if sent_tokens == 0:
+            final_state = await asyncio.to_thread(
+                engine.graph.get_state, config
+            )
+            answer_text = final_state.values.get("final_answer") or final_state.values.get("answer", "")
+            for chunk in _split_tokens(answer_text):
+                yield _sse("token", {"t": chunk})
+        else:
+            final_state = await asyncio.to_thread(engine.graph.get_state, config)
+            answer_text = final_state.values.get("final_answer") or final_state.values.get("answer", "")
+
+        cits = _citations(final_state.values)
+        for piece in cits:
+            yield _sse("citation", piece)
+        elapsed = int((time.time() - t0) * 1000)
+        yield _sse("done", {"answer": answer_text, "cached": False,
+                            "elapsed_ms": elapsed})
+
+        # 落历史 + 缓存（只缓存有真实依据的成功回答）
+        _HISTORY.setdefault(thread_id, []).append(
+            {"q": req.question, "a": answer_text, "elapsed_ms": elapsed, "ts": time.time()}
+        )
+        if fresh_session and answer_text and cits:
+            engine.cache_set(req.question, {"answer": answer_text, "citations": cits})
+
+    except Exception as e:   # 任何环节炸了都以前端能渲染的方式收尾，绝不静默断流
+        yield _sse("error", {"message": f"{type(e).__name__}: {e}"})
+
+
+def _split_tokens(text: str, size: int = 6):
+    """把整段答案切成小块逐帧发，模拟打字机节奏（供缓存命中 / 非流式兜底复用）。"""
+    return [text[i:i + size] for i in range(0, len(text), size)]
+
+
+# ---------------- 路由 ----------------
+
+@app.post("/api/chat")
+async def chat(req: ChatRequest):
+    """SSE 流式问答。事件类型：route / status / trace / token / citation / done / error。"""
+    if not engine.ready:
+        raise HTTPException(503, "引擎尚未完成冷启动（模型加载中），请稍后重试")
+    return EventSourceResponse(_chat_gen(req))
+
+
+@app.post("/api/ingest")
+async def ingest(req: IngestRequest):
+    """上传/指定 PDF 触发解析入库并重建索引。"""
+    path = Path(req.path)
+    if not path.exists():
+        raise HTTPException(404, f"文件不存在: {path}")
+    if path.suffix.lower() != ".pdf":
+        raise HTTPException(400, "仅支持 PDF")
+    try:
+        n = await asyncio.to_thread(engine.ingest, path, req.company, req.year)
+    except Exception as e:
+        raise HTTPException(500, f"入库失败: {type(e).__name__}: {e}")
+    return {"ok": True, "file": path.name, "chunks": n, "total_chunks": len(engine.retriever.docs)}
+
+
+@app.post("/api/ingest/upload")
+async def ingest_upload(file: UploadFile = File(...)):
+    """multipart 上传 PDF：保存到 data/raw 后走同一条入库链路。"""
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "仅支持 PDF")
+    dest = settings.raw_dir / Path(file.filename).name
+    dest.write_bytes(await file.read())
+    return await ingest(IngestRequest(path=str(dest)))
+
+
+@app.get("/api/documents")
+async def documents():
+    """已入库文档列表：来源文件、页数、分块数。"""
+    stats: dict[str, dict] = {}
+    for d in engine.retriever.docs:
+        src = str(d.metadata.get("source", "unknown"))
+        s = stats.setdefault(src, {"source": src, "pages": set(), "chunks": 0})
+        s["pages"].add(d.metadata.get("page"))
+        s["chunks"] += 1
+    out = [{"source": v["source"], "pages": len(v["pages"]), "chunks": v["chunks"]}
+           for v in stats.values()]
+    return {"documents": out, "total_chunks": len(engine.retriever.docs)}
+
+
+@app.get("/api/history/{session_id}")
+async def history(session_id: str):
+    """会话历史（进程内；MySQL 持久化接入后此接口语义不变）。"""
+    return {"session_id": session_id, "turns": _HISTORY.get(session_id, [])}
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health():
+    return HealthResponse(
+        status="ok",
+        engine_ready=engine.ready,
+        llm_provider=settings.llm_provider,
+        doc_count=len(set(d.metadata.get("source") for d in engine.retriever.docs)) if engine.retriever else 0,
+        chunk_count=len(engine.retriever.docs) if engine.retriever else 0,
+    )

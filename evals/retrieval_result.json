@@ -1,0 +1,44 @@
+{
+  "n": 26,
+  "recall5": {
+    "dense_only": 0.9230769230769231,
+    "bm25_only": 0.2692307692307692,
+    "hybrid(RRF)": 0.8846153846153846,
+    "hybrid+rerank": 0.9615384615384616
+  },
+  "misses": {
+    "dense_only": [
+      "宁德-numeric-9",
+      "比亚迪-numeric-11"
+    ],
+    "bm25_only": [
+      "茅台-numeric-5",
+      "茅台-numeric-5",
+      "茅台-numeric-5",
+      "茅台-numeric-5",
+      "茅台-numeric-5",
+      "茅台-numeric-5",
+      "宁德-numeric-9",
+      "宁德-numeric-9",
+      "宁德-numeric-9",
+      "宁德-numeric-9",
+      "宁德-numeric-9",
+      "比亚迪-numeric-10",
+      "比亚迪-numeric-11",
+      "比亚迪-numeric-11",
+      "比亚迪-numeric-11",
+      "比亚迪-numeric-11",
+      "贵州茅台-qualitative-7",
+      "宁德时代-qualitative-13",
+      "比亚迪-qualitative-22"
+    ],
+    "hybrid(RRF)": [
+      "宁德-numeric-9",
+      "比亚迪-numeric-11",
+      "宁德时代-qualitative-13"
+    ],
+    "hybrid+rerank": [
+      "比亚迪-numeric-10"
+    ]
+  }
+}

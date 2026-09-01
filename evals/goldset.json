@@ -1,0 +1,334 @@
+{
+  "items": [
+    {
+      "id": "茅台-numeric-5",
+      "company": "茅台",
+      "question": "贵州茅台2024年营业收入是多少？",
+      "answer_substr": "170,899,152,276.34",
+      "aliases": [],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": 5,
+      "kind": "numeric"
+    },
+    {
+      "id": "茅台-numeric-5",
+      "company": "茅台",
+      "question": "贵州茅台2024年归属于上市公司股东的净利润是多少？",
+      "answer_substr": "86,228,146,421.62",
+      "aliases": [],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": 5,
+      "kind": "numeric"
+    },
+    {
+      "id": "茅台-numeric-5",
+      "company": "茅台",
+      "question": "贵州茅台2024年经营活动产生的现金流量净额是多少？",
+      "answer_substr": "92,463,692,168.43",
+      "aliases": [],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": 5,
+      "kind": "numeric"
+    },
+    {
+      "id": "茅台-numeric-5",
+      "company": "茅台",
+      "question": "贵州茅台2024年末的总资产是多少？",
+      "answer_substr": "298,944,579,918.70",
+      "aliases": [],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": 5,
+      "kind": "numeric"
+    },
+    {
+      "id": "茅台-numeric-5",
+      "company": "茅台",
+      "question": "贵州茅台2024年基本每股收益是多少？",
+      "answer_substr": "68.64",
+      "aliases": [
+        "68.64%"
+      ],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": 5,
+      "kind": "numeric"
+    },
+    {
+      "id": "茅台-numeric-5",
+      "company": "茅台",
+      "question": "贵州茅台2024年营业收入同比增长了多少？",
+      "answer_substr": "15.71",
+      "aliases": [
+        "15.71%"
+      ],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": 5,
+      "kind": "numeric"
+    },
+    {
+      "id": "茅台-numeric-5",
+      "company": "茅台",
+      "question": "贵州茅台2024年归母净利润的同比增速是多少？",
+      "answer_substr": "15.38",
+      "aliases": [
+        "15.38%"
+      ],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": 5,
+      "kind": "numeric"
+    },
+    {
+      "id": "宁德-numeric-9",
+      "company": "宁德",
+      "question": "宁德时代2024年营业收入（单位：千元）是多少？",
+      "answer_substr": "362,012,554",
+      "aliases": [],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": 9,
+      "kind": "numeric"
+    },
+    {
+      "id": "宁德-numeric-9",
+      "company": "宁德",
+      "question": "宁德时代2024年归属于上市公司股东的净利润（单位：千元）是多少？",
+      "answer_substr": "50,744,682",
+      "aliases": [],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": 9,
+      "kind": "numeric"
+    },
+    {
+      "id": "宁德-numeric-9",
+      "company": "宁德",
+      "question": "宁德时代2024年经营活动产生的现金流量净额（单位：千元）是多少？",
+      "answer_substr": "96,990,345",
+      "aliases": [],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": 9,
+      "kind": "numeric"
+    },
+    {
+      "id": "宁德-numeric-9",
+      "company": "宁德",
+      "question": "宁德时代2024年基本每股收益是多少？",
+      "answer_substr": "11.58",
+      "aliases": [
+        "11.58%"
+      ],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": 9,
+      "kind": "numeric"
+    },
+    {
+      "id": "宁德-numeric-9",
+      "company": "宁德",
+      "question": "宁德时代2024年营业收入同比变化率是多少？",
+      "answer_substr": "9.70",
+      "aliases": [
+        "9.70%"
+      ],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": 9,
+      "kind": "numeric"
+    },
+    {
+      "id": "宁德-numeric-9",
+      "company": "宁德",
+      "question": "宁德时代2024年净利润的同比增速是多少？",
+      "answer_substr": "15.01",
+      "aliases": [
+        "15.01%"
+      ],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": 9,
+      "kind": "numeric"
+    },
+    {
+      "id": "宁德-numeric-9",
+      "company": "宁德",
+      "question": "宁德时代2024年第四季度的营业收入（单位：千元）是多少？",
+      "answer_substr": "102,967,805",
+      "aliases": [],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": 9,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-numeric-10",
+      "company": "比亚迪",
+      "question": "比亚迪2024年营业收入是多少？",
+      "answer_substr": "777,102,455,000.00",
+      "aliases": [
+        "777,102,455"
+      ],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 10,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-numeric-11",
+      "company": "比亚迪",
+      "question": "比亚迪2024年归属于上市公司股东的净利润是多少？",
+      "answer_substr": "40,254,346,000.00",
+      "aliases": [
+        "40,254,346"
+      ],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 11,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-numeric-11",
+      "company": "比亚迪",
+      "question": "比亚迪2024年经营活动产生的现金流量净额是多少？",
+      "answer_substr": "133,453,873,000.00",
+      "aliases": [
+        "133,453,873"
+      ],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 11,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-numeric-11",
+      "company": "比亚迪",
+      "question": "比亚迪2024年基本每股收益是多少？",
+      "answer_substr": "13.84",
+      "aliases": [
+        "13.84%"
+      ],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 11,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-numeric-11",
+      "company": "比亚迪",
+      "question": "比亚迪2024年扣除非经常性损益后的净利润是多少？",
+      "answer_substr": "36,982,887,000.00",
+      "aliases": [
+        "36,982,887"
+      ],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 11,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-numeric-11",
+      "company": "比亚迪",
+      "question": "比亚迪2024年净利润的同比增速是多少？",
+      "answer_substr": "34.00",
+      "aliases": [
+        "34.00%"
+      ],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 11,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-numeric-10",
+      "company": "比亚迪",
+      "question": "比亚迪2024年营业收入同比增速是多少？",
+      "answer_substr": "29.02",
+      "aliases": [
+        "29.02%"
+      ],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 10,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-numeric-11",
+      "company": "比亚迪",
+      "question": "比亚迪2024年经营现金流同比变化率是多少？",
+      "answer_substr": "21.37",
+      "aliases": [
+        "21.37%"
+      ],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 11,
+      "kind": "numeric"
+    },
+    {
+      "id": "比亚迪-qualitative-10",
+      "company": "比亚迪",
+      "question": "比亚迪2024年年报的审计会计师事务所是哪家？",
+      "answer_substr": "安永华明",
+      "aliases": [],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 10,
+      "kind": "qualitative"
+    },
+    {
+      "id": "贵州茅台-qualitative-7",
+      "company": "贵州茅台",
+      "question": "贵州茅台的主要产品分为哪两大类？",
+      "answer_substr": "茅台酒及系列酒",
+      "aliases": [],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": 7,
+      "kind": "qualitative"
+    },
+    {
+      "id": "宁德时代-qualitative-13",
+      "company": "宁德时代",
+      "question": "宁德时代的主营业务是什么？",
+      "answer_substr": "动力电池",
+      "aliases": [],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": 13,
+      "kind": "qualitative"
+    },
+    {
+      "id": "比亚迪-qualitative-22",
+      "company": "比亚迪",
+      "question": "比亚迪的业务主要覆盖哪些领域？",
+      "answer_substr": "新能源汽车",
+      "aliases": [],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": 22,
+      "kind": "qualitative"
+    }
+  ],
+  "traps": [
+    {
+      "id": "茅台-trap--1",
+      "company": "茅台",
+      "question": "贵州茅台2024年员工平均薪酬是多少？",
+      "answer_substr": "",
+      "aliases": [],
+      "source_pdf": "贵州茅台_2024年年度报告.pdf",
+      "source_page": -1,
+      "kind": "trap"
+    },
+    {
+      "id": "宁德-trap--1",
+      "company": "宁德",
+      "question": "宁德时代2024年末的市值是多少？",
+      "answer_substr": "",
+      "aliases": [],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": -1,
+      "kind": "trap"
+    },
+    {
+      "id": "宁德-trap--1",
+      "company": "宁德",
+      "question": "宁德时代2024年光伏组件的销量是多少？",
+      "answer_substr": "",
+      "aliases": [],
+      "source_pdf": "宁德时代_2024年年度报告.pdf",
+      "source_page": -1,
+      "kind": "trap"
+    },
+    {
+      "id": "比亚迪-trap--1",
+      "company": "比亚迪",
+      "question": "比亚迪2024年股价最高是多少？",
+      "answer_substr": "",
+      "aliases": [],
+      "source_pdf": "比亚迪_2024年年度报告.pdf",
+      "source_page": -1,
+      "kind": "trap"
+    }
+  ]
+}
