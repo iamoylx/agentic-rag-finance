@@ -20,11 +20,14 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sse_starlette.sse import EventSourceResponse
 
 from src.api import store
 from src.api.engine import engine
 from src.api.schemas import ChatRequest, HealthResponse, IngestRequest
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 from src.core.config import settings
 
 # 会产生「最终答案」token 的节点；路由/打分/改写节点的 LLM 输出不应混进答案流
@@ -49,6 +52,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# 前端挂载：/web 直接由本服务托管（免构建静态页），浏览器访问 http://127.0.0.1:8300/web/
+app.mount("/web", StaticFiles(directory=PROJECT_ROOT / "web", html=True), name="web")
 
 
 def _sse(event: str, data: dict) -> dict:

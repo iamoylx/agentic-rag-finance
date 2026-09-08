@@ -44,6 +44,26 @@
   }
   .chip b { display:block; font-size:12.5px; font-weight:600; margin-bottom:2px; }
   .chip .dim { color:var(--text-dim); }
+  .chip.ingesting { border-color:rgba(255,255,255,0.45); animation:pulse 1.2s infinite; }
+  @keyframes pulse { 50% { background:rgba(255,255,255,0.12); } }
+
+  /* 面板标题行（标题 + 操作按钮）与迷你按钮 */
+  .head-row { display:flex; align-items:center; justify-content:space-between; padding:16px 18px 10px; }
+  .head-row h2 { padding:0; }
+  .mini-btn {
+    font-size:11px; padding:4px 12px; border-radius:8px; letter-spacing:.5px;
+    background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+    color:var(--text); cursor:pointer; transition:background .2s;
+  }
+  .mini-btn:hover { background:rgba(255,255,255,0.24); }
+  .mini-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* 左栏底部：存储层运维条（后端类型 / 轮次 / 会话数 / 最近写入） */
+  .storage {
+    padding:10px 18px 14px; font-size:10.5px; color:var(--text-dim); line-height:1.6;
+    border-top:1px solid rgba(255,255,255,0.08);
+  }
+  .storage b { color:var(--text); font-weight:600; }
 
   /* 中间对话区 */
   #chat { display:flex; flex-direction:column; }
@@ -99,13 +119,18 @@
 <div class="wave w1"></div><div class="wave w2"></div><div class="wave w3"></div><div class="wave w4"></div>
 
 <div class="layout">
-  <!-- 左：文档 + 会话 -->
+  <!-- 左：文档 + 会话 + 存储状态 -->
   <div class="panel">
-    <h2>Documents</h2>
+    <div class="head-row">
+      <h2>Documents</h2>
+      <button class="mini-btn" id="uploadBtn">＋ 上传PDF</button>
+    </div>
     <div class="body" id="docs"></div>
     <h2>Sessions</h2>
     <div class="body" id="sessions"></div>
+    <div class="storage" id="storage">存储层：加载中…</div>
   </div>
+  <input type="file" id="pdfFile" accept=".pdf" hidden>
 
   <!-- 中：对话 -->
   <div class="panel" id="chat">
@@ -126,7 +151,12 @@
 
 <script>
 const API = "http://127.0.0.1:8300";
-let sessionId = "web-" + Math.random().toString(36).slice(2, 8);
+// 会话 ID 持久化到 localStorage：刷新后仍是同一会话，loadHistory 才能把历史对话拉回来
+let sessionId = localStorage.getItem("rag_sid");
+if (!sessionId) {
+  sessionId = "web-" + Math.random().toString(36).slice(2, 8);
+  localStorage.setItem("rag_sid", sessionId);
+}
 let busy = false;
 
 const $ = id => document.getElementById(id);
@@ -145,9 +175,62 @@ function addSession(sid) {
   if ([...$("sessions").children].some(c => c.dataset.sid === sid)) return;
   const el = document.createElement("div");
   el.className = "chip"; el.dataset.sid = sid;
-  el.innerHTML = `<b>${sid}</b><span class="dim">当前会话</span>`;
-  el.onclick = () => { sessionId = sid; };
+  el.innerHTML = `<b>${sid}</b><span class="dim">当前会话 · 点击恢复历史</span>`;
+  el.onclick = () => {
+    // 切会话：清空当前画面后从存储层拉回历史轮次
+    if (sessionId !== sid) {
+      sessionId = sid; $("messages").innerHTML = ""; $("trace").innerHTML = "";
+      loadHistory();
+    }
+  };
   $("sessions").prepend(el);
+}
+
+// 存储层运维条：backend=MySQL/SQLite，轮次/会话数/最近写入来自 /api/store/stats
+async function loadStoreStats() {
+  try {
+    const s = await (await fetch(API + "/api/store/stats")).json();
+    $("storage").innerHTML = `存储 <b>${s.backend}</b> · ${s.turns} 轮 / ${s.sessions} 会话`
+      + (s.last_turn_at ? ` · 最近写入 ${String(s.last_turn_at).slice(0, 16)}` : "");
+  } catch(_) { $("storage").textContent = "存储层：不可用"; }
+}
+
+// 会话历史恢复：页面刷新/切会话后从 chat_turns 表回放问答对（带耗时与时间戳）
+async function loadHistory() {
+  try {
+    const h = await (await fetch(API + "/api/history/" + encodeURIComponent(sessionId))).json();
+    (h.turns || []).forEach(t => {
+      bubble("user", t.q);
+      const b = bubble("bot", t.a);
+      b.querySelector(".role").textContent =
+        `Agent · ${t.elapsed_ms}ms · ${new Date(t.ts * 1000).toLocaleString()}`;
+    });
+    if (h.turns && h.turns.length)
+      traceStep("history", `已从存储层恢复 <b>${h.turns.length}</b> 轮历史对话`);
+  } catch(_) {}
+}
+
+// PDF 上传入库：multipart → 后端落盘 data/raw → 解析分块向量化 → 重建索引
+async function uploadPdf(file) {
+  $("uploadBtn").disabled = true; $("uploadBtn").textContent = "入库中…";
+  const chip = document.createElement("div");
+  chip.className = "chip ingesting";
+  chip.innerHTML = `<b>${file.name}</b><span class="dim">解析 → 分块 → 向量化 → 重建索引…</span>`;
+  $("docs").prepend(chip);
+  try {
+    const fd = new FormData(); fd.append("file", file);
+    const r = await fetch(API + "/api/ingest/upload", { method: "POST", body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ("HTTP " + r.status));
+    chip.classList.remove("ingesting");
+    chip.innerHTML = `<b>${d.file}</b><span class="dim">新增 ${d.chunks} 块 · 全库 ${d.total_chunks} 块 ✓</span>`;
+    loadMeta(); // 刷新文档列表（引擎内文档计数已变化）
+  } catch(e) {
+    chip.classList.remove("ingesting");
+    chip.innerHTML = `<b>${file.name}</b><span class="dim">入库失败：${e.message || e}</span>`;
+  }
+  $("uploadBtn").disabled = false; $("uploadBtn").textContent = "＋ 上传PDF";
+  $("pdfFile").value = "";
 }
 
 function bubble(role, text) {
@@ -213,10 +296,16 @@ async function send() {
       const { done, value } = await reader.read();
       if (done) break;
       buf += decoder.decode(value, { stream: true });
-      const frames = buf.split("\n\n"); buf = frames.pop();
+      // SSE 帧分隔：sse-starlette 用 \r\n\r\n，浏览器 fetch 也可能遇到 \n\n，两种都兼容
+      const frames = buf.split(/\r?\n\r?\n/); buf = frames.pop();
       for (const f of frames) {
-        const ev = (f.match(/^event: (.+)$/m) || [])[1];
-        const dataRaw = (f.match(/^data: (.+)$/m) || [])[1];
+        // 逐行解析，兼容 \r\n 与 \n 两种行尾（\r 会混进 $ 捕获，不能只靠 ^...$）
+        let ev = null, dataRaw = null;
+        for (const line of f.split(/\r?\n/)) {
+          const m = line.match(/^(event|data):\s?(.*)$/);
+          if (!m) continue;
+          if (m[1] === "event") ev = m[2]; else dataRaw = m[2];
+        }
         if (!ev || !dataRaw) continue;
         const data = JSON.parse(dataRaw);
         if (ev === "route") {
@@ -237,6 +326,7 @@ async function send() {
         } else if (ev === "done") {
           addCites(bot, cits);
           bot.querySelector(".role").textContent = "Agent · " + data.elapsed_ms + "ms" + (data.cached ? " · 缓存命中" : "");
+          loadStoreStats(); // 每轮落库后刷新存储运维条
         } else if (ev === "error") {
           bub.textContent = "⚠️ " + data.message;
         }
@@ -250,7 +340,11 @@ async function send() {
 }
 $("send").onclick = send;
 $("q").addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+$("uploadBtn").onclick = () => $("pdfFile").click();
+$("pdfFile").onchange = () => { const f = $("pdfFile").files[0]; if (f) uploadPdf(f); };
 loadMeta();
+loadHistory();
+loadStoreStats();
 </script>
 </body>
 </html>

@@ -36,10 +36,12 @@ python scripts/ingest_real.py
 # 4) 起服务（对话历史自动持久化：配了 MYSQL_URL 走 MySQL，否则落 data/db/chats.db）
 python scripts/run_api.py          # http://127.0.0.1:8300
 
-# 5) 浏览器打开 web/index.html，或直接调 API：
+# 5) 浏览器打开 http://127.0.0.1:8300/web/（前端由服务直接托管），或直接调 API：
 curl -N -X POST http://127.0.0.1:8300/api/chat -H "Content-Type: application/json" \
      -d '{"question":"贵州茅台2024年营业收入是多少","session_id":"demo"}'
 ```
+
+前端除对话/轨迹/引用外还接了：**「＋ 上传PDF」入库**（`/api/ingest/upload`，实时显示分块进度）、**刷新后历史对话自动恢复**（localStorage 会话 ID + `/api/history`）、**存储层运维条**（`/api/store/stats`：MySQL/SQLite、轮次、会话数、最近写入）。
 
 ### Docker 一键部署（api + mysql + redis）
 

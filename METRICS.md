@@ -127,3 +127,19 @@
 
 工程模式：与 P2 的「SQLAlchemy URL 抽象换库」同构——两项目互相印证库无关设计。
 新增运维接口：`GET /api/store/stats`（后端/轮次/会话数/最近写入）。
+
+
+## 前端服务化补齐（2026-09-08）✅
+
+后端四个「有接口无入口」的能力全部接到前端，并用真浏览器（Chromium 实测 8300 服务）走完全链路：
+
+| 功能 | 接口 | 实测结果 |
+|---|---|---|
+| 静态托管 | `app.mount("/web", StaticFiles)` | 浏览器访问 `http://127.0.0.1:8300/web/`（此前 404） |
+| PDF 上传入库 | `POST /api/ingest/upload`（multipart） | 1 页测试 PDF → 解析分块向量化重建索引，+7 块（10014→10021），前端实时显示进度与结果 |
+| 会话历史恢复 | `GET /api/history/{sid}` + localStorage 会话持久化 | 刷新页面 → 同 session → 「已从存储层恢复 N 轮历史对话」，问答对带耗时/时间戳回放 |
+| 存储层运维条 | `GET /api/store/stats` | 左栏底部实时显示 `存储 mysql · N 轮 / N 会话 · 最近写入 …`，每轮落库后自动刷新 |
+
+**连带修出的真 bug（字符串目测永远发现不了）**：SSE 帧解析按 `"\n\n"` 切分，而 sse-starlette 实际发 `\r\n\r\n` —— 浏览器端一个事件都解析不到，页面永远「无返回」。修复为 `/\r?\n\r?\n/` 切帧 + 逐行解析 `event:`/`data:`，两种行尾全兼容。与 P2 的 `textContent/innerHTML` 教训同款：**curl 看得到的流 ≠ 浏览器渲染得出来，前端改动必须真浏览器截图验收**。
+
+实测全程：真浏览器提问「比亚迪累计/2024 研发投入」→ 右侧 6 步轨迹（route_query → route → retrieve → grade → generate → check PASS）→ 结构化 markdown 答案 + 5 条页码引用徽章，25.4s。
