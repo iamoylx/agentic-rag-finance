@@ -1,0 +1,9 @@
+.git
+.venv
+data
+models
+logs
+__pycache__
+*.pyc
+.env
+.ssh_gh

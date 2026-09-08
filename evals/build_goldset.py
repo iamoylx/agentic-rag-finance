@@ -82,7 +82,11 @@ def build() -> dict:
     ]
     for question, kw, pdf, biz in qual:
         page = _locate(pdf, kw, biz)
-        items.append(_q(question.split("的")[0], question, kw, pdf, page, "qualitative"))
+        it = _q(question.split("的")[0], question, kw, pdf, page, "qualitative")
+        if kw == "茅台酒及系列酒":
+            # 同义表述别名：语义相同的不同措辞（"和/与/、"）不应判错
+            it["aliases"] += ["茅台酒和系列酒", "茅台酒与系列酒", "茅台酒、系列酒"]
+        items.append(it)
 
     # ---------- 诱导幻觉陷阱（原文不存在，期望系统拒绝回答）----------
     traps = [

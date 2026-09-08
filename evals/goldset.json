@@ -263,7 +263,11 @@
       "company": "贵州茅台",
       "question": "贵州茅台的主要产品分为哪两大类？",
       "answer_substr": "茅台酒及系列酒",
-      "aliases": [],
+      "aliases": [
+        "茅台酒和系列酒",
+        "茅台酒与系列酒",
+        "茅台酒、系列酒"
+      ],
       "source_pdf": "贵州茅台_2024年年度报告.pdf",
       "source_page": 7,
       "kind": "qualitative"

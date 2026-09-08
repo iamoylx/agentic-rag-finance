@@ -33,13 +33,26 @@ python -m venv .venv
 # 3) 建索引（首次解析约 3-5 分钟，之后走语料缓存）
 python scripts/ingest_real.py
 
-# 4) 起服务
+# 4) 起服务（对话历史自动持久化：配了 MYSQL_URL 走 MySQL，否则落 data/db/chats.db）
 python scripts/run_api.py          # http://127.0.0.1:8300
 
 # 5) 浏览器打开 web/index.html，或直接调 API：
 curl -N -X POST http://127.0.0.1:8300/api/chat -H "Content-Type: application/json" \
      -d '{"question":"贵州茅台2024年营业收入是多少","session_id":"demo"}'
 ```
+
+### Docker 一键部署（api + mysql + redis）
+
+```bash
+export AGNES_API_KEY=...            # 或 DEEPSEEK_API_KEY / TAVILY_API_KEY
+docker compose up -d                # api:8300 + mysql:8.4 + redis:7
+# 对话落 MySQL(rag 库)、高频问答缓存走 Redis；models/ 与 data/ 卷挂载不进镜像
+```
+
+存储层说明：会话历史经 SQLAlchemy URL 抽象双引擎——`MYSQL_URL` 配了连 MySQL（生产形态，
+`chat_turns` 表），缺省落 SQLite（`data/db/chats.db`，开发零配置），`/api/history` 语义不变；
+高频问答缓存 `REDIS_URL` 配了走真实 Redis，缺省降级 fakeredis（进程内，接口一致）。
+运维视图：`GET /api/store/stats` 返回后端类型 / 总轮次 / 会话数。
 
 ## API
 

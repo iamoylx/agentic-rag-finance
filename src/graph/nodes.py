@@ -210,7 +210,9 @@ GEN_PROMPT = """你是财报分析助手。仅根据提供的原文片段回答�
    禁止列举 B 指标（哪怕同页/同类）。
    例：问"光伏组件销量"，片段只有"动力电池销量 381GWh" → 必须回复
    "原文中未找到相关信息"，绝不能输出 381GWh。
-4. 答案末尾标注引用页码，格式：[引用: 第X页]（多页用顿号分隔）；
+4. 【禁止单位换算】必须逐字使用原文中的数字与单位（如原文是"170,899,152,276.34元"
+   就原样引用，禁止换算成"1,708.99亿元"）。
+5. 答案末尾标注引用页码，格式：[引用: 第X页]（多页用顿号分隔）；
    若依据的是网络来源片段，标注 [来源: 网络]。
 
 问题：{q}
@@ -246,7 +248,14 @@ def generate(state: RAGState) -> dict:
         for i, d in enumerate(docs, 1)
     )
     history_block = _history_block(state)
-    resp = get_llm().invoke(history_block + GEN_PROMPT.format(q=q, docs=context) + hint).content.strip()
+    prompt = history_block + GEN_PROMPT.format(q=q, docs=context) + hint
+    resp = get_llm().invoke(prompt).content.strip()
+    # 网关容错：OpenAI 兼容网关偶发返回空 content（不报错），重试一次，
+    # 仍为空则按「未找到」兜底，绝不让空串流进状态图（空串会被数值校验误判通过）
+    if not resp:
+        resp = get_llm().invoke(prompt).content.strip()
+    if not resp:
+        resp = "原文中未找到相关信息"
 
     # 从回答中解析引用：年报块解析页码，网络来源块解析 [来源: 网络]
     pages = sorted({int(p) for p in re.findall(r"第(\d+)页", resp)})

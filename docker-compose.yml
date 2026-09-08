@@ -1,0 +1,51 @@
+# 一键生产形态：api + mysql + redis
+# 用法：docker compose up -d —— API 在 8300，对话落 MySQL(rag 库)，高频问答缓存走 Redis
+# 密钥经环境注入（不写进镜像）；models/data 卷挂载，镜像保持轻量
+services:
+  api:
+    build: .
+    ports:
+      - "8300:8300"
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-agnes}
+      AGNES_API_KEY: ${AGNES_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      MYSQL_URL: mysql+pymysql://rag:ragpass@mysql:3306/rag?charset=utf8mb4
+      REDIS_URL: redis://redis:6379/0
+      EMBED_DEVICE: cpu
+    volumes:
+      - ./models:/app/models:ro        # BGE-M3 / Reranker 权重（约 2GB，不进镜像）
+      - ./data:/app/data               # 年报原始件 / 解析产物 / Chroma 索引
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme-root}
+      MYSQL_DATABASE: rag
+      MYSQL_USER: rag
+      MYSQL_PASSWORD: ragpass
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:

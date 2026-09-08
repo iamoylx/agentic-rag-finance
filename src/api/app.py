@@ -22,12 +22,10 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
+from src.api import store
 from src.api.engine import engine
 from src.api.schemas import ChatRequest, HealthResponse, IngestRequest
 from src.core.config import settings
-
-# 进程内会话历史（MySQL 持久化在后续 Stage 接入，接口保持不变）
-_HISTORY: dict[str, list[dict]] = {}
 
 # 会产生「最终答案」token 的节点；路由/打分/改写节点的 LLM 输出不应混进答案流
 _ANSWER_NODES = {"generate", "direct_answer", "fallback_answer"}
@@ -38,6 +36,9 @@ async def lifespan(_: FastAPI):
     """启动时冷加载模型与索引（约 6-10 秒），关闭时无需清理。"""
     if not engine.ready:
         await asyncio.to_thread(engine.startup)   # to_thread：别阻塞事件循环
+    # 存储层探活：MYSQL_URL 配了走 MySQL，否则落 SQLite（结果写日志）
+    info = await asyncio.to_thread(store.ping)
+    print(f"[store] chat history backend = {info['backend']}")
     yield
 
 
@@ -75,7 +76,8 @@ async def _chat_gen(req: ChatRequest):
     thread_id = req.session_id
 
     # ---------- 快路：高频问题缓存（会话首轮才查，避免多轮追问误命中）----------
-    fresh_session = not _HISTORY.get(thread_id)
+    history = await asyncio.to_thread(store.load_history, thread_id)
+    fresh_session = not history
     cached = engine.cache_get(req.question) if fresh_session else None
     if cached:
         yield _sse("route", {"route": "cache", "query": req.question})
@@ -85,14 +87,13 @@ async def _chat_gen(req: ChatRequest):
             yield _sse("token", {"t": chunk})
         yield _sse("done", {"answer": cached["answer"], "cached": True,
                             "elapsed_ms": int((time.time() - t0) * 1000)})
-        _HISTORY.setdefault(thread_id, []).append(
-            {"q": req.question, "a": cached["answer"], "elapsed_ms": 0, "ts": time.time()}
-        )
+        await asyncio.to_thread(store.append_turn,
+                                thread_id, req.question, cached["answer"], 0, True)
         return
 
     # ---------- 慢路：完整跑图 ----------
     init_state = {"question": req.question, "query_used": req.question,
-                  "history": _HISTORY.get(thread_id, []),
+                  "history": history,
                   "retrieve_rounds": 0, "rewrite_count": 0, "regen_count": 0,
                   "web_used": False, "trace": []}
     config = {"configurable": {"thread_id": thread_id}}
@@ -153,10 +154,9 @@ async def _chat_gen(req: ChatRequest):
         yield _sse("done", {"answer": answer_text, "cached": False,
                             "elapsed_ms": elapsed})
 
-        # 落历史 + 缓存（只缓存有真实依据的成功回答）
-        _HISTORY.setdefault(thread_id, []).append(
-            {"q": req.question, "a": answer_text, "elapsed_ms": elapsed, "ts": time.time()}
-        )
+        # 落历史（MySQL/SQLite）+ 缓存（只缓存有真实依据的成功回答）
+        await asyncio.to_thread(store.append_turn,
+                                thread_id, req.question, answer_text, elapsed, False)
         if fresh_session and answer_text and cits:
             engine.cache_set(req.question, {"answer": answer_text, "citations": cits})
 
@@ -220,8 +220,15 @@ async def documents():
 
 @app.get("/api/history/{session_id}")
 async def history(session_id: str):
-    """会话历史（进程内；MySQL 持久化接入后此接口语义不变）。"""
-    return {"session_id": session_id, "turns": _HISTORY.get(session_id, [])}
+    """会话历史（MySQL/SQLite 持久化，跨重启可用）。"""
+    turns = await asyncio.to_thread(store.load_history, session_id)
+    return {"session_id": session_id, "turns": turns}
+
+
+@app.get("/api/store/stats")
+async def store_stats():
+    """存储层运维视图：后端类型 / 总轮次 / 会话数 / 最近写入。"""
+    return await asyncio.to_thread(store.stats)
 
 
 @app.get("/health", response_model=HealthResponse)

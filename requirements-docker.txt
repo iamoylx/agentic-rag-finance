@@ -1,0 +1,10 @@
+# 容器镜像专用依赖：与 requirements.txt 的区别是这里要显式带上 torch/transformers
+# （requirements.txt 假设「系统 venv 已继承 torch cu126」，容器里没有系统环境，必须自含）
+# torch 用 CPU 版（--extra-index-url 见 Dockerfile）：推理足够，镜像体积可控
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.4.0
+transformers>=4.51.0
+accelerate>=1.0.0
+
+-r requirements.txt
