@@ -65,7 +65,7 @@ def _is_header_footer(line: str) -> bool:
 
 
 def _table_to_markdown(table: list[list[str | None]]) -> str:
-    """把 pdfplumber 提取的二维表格转成 Markdown 表格。
+    """把 PyMuPDF find_tables 提取的二维表格转成 Markdown 表格。
 
     用途：让表格内容对 LLM 友好。
     原理：首行作表头，其余作数据行；空单元格补空串，避免 Markdown 结构错位。
@@ -95,7 +95,7 @@ class AnnualReportParser:
     """年报 PDF 解析器（混合策略）。"""
 
     def __init__(self, extract_tables: bool = True):
-        # 用途：开关控制。表格提取很慢（pdfplumber 逐页解析），
+        # 用途：开关控制。表格提取耗时明显（逐页 find_tables + 单元格重建），
         #       原型阶段可关掉快速验证文本链路。
         self.extract_tables = extract_tables
 

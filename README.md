@@ -82,6 +82,8 @@ python evals/run_trap_eval.py        # 诱导幻觉陷阱拒绝率 → evals/tra
 
 ## 项目结构
 
+> 整体 pipeline 图、分层调用关系、逐文件阅读指南与术语表见 **[ARCHITECTURE.md](ARCHITECTURE.md)**。
+
 ```
 src/
 ├── core/        config（pydantic-settings，路径全部锚定项目内）/ llm 多提供方工厂

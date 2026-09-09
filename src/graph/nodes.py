@@ -20,7 +20,7 @@ from langchain_core.documents import Document
 
 from src.core.config import settings
 from src.core.llm import get_cheap_llm, get_llm
-from src.graph.state import RAGState, trace
+from src.graph.state import RAGState
 from src.retrieval.hybrid import HybridRetriever
 
 _NUM_RE = re.compile(r"\d[\d,，]*(?:\.\d+)?")

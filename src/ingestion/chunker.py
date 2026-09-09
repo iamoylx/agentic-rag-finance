@@ -12,7 +12,6 @@
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
@@ -75,7 +74,11 @@ class FinancialChunker:
         return docs
 
     def _context_prefix(self, b: Block, doc_meta: dict[str, str]) -> str:
-        """构造上下文前缀。用途：让语义相近但主体不同的块能被区分开。"""
+        """构造上下文前缀。用途：让语义相近但主体不同的块能被区分开。
+
+        注意：Block.section 目前恒为空串（pdf_parser 不做章节结构抽取，字段预留），
+        前缀实际由 公司|年份|页码 组成——这三项已足够区分三家公司年报。
+        """
         parts = []
         if doc_meta.get("company"):
             parts.append(str(doc_meta["company"]))
@@ -166,13 +169,3 @@ def summarize_chunks(docs: list[Document]) -> ChunkStats:
         avg_len=round(sum(lens) / len(lens), 1) if lens else 0.0,
         max_len=max(lens) if lens else 0,
     )
-
-
-def extract_section_hint(text: str) -> str:
-    """从正文里猜章节名（如「第三节 财务报表」）。
-
-    用途：pdfplumber/PyMuPDF 不直接给章节结构，用正则从文本里捞，
-          用于上下文前缀注入，提升检索区分度。
-    """
-    m = re.search(r"^第[一二三四五六七八九十]+[节章篇]\s*[^\n]{0,30}", text, re.M)
-    return m.group(0).strip() if m else ""

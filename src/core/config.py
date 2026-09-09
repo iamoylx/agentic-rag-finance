@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # ---------- LLM 提供方切换 ----------
     # agnes：免费额度，OpenAI 协议兼容（当前主力）
-    # deepseek：备用（余额不足时自动切换到这里的状态由 provider 字段控制）
+    # deepseek：备用——无自动切换逻辑，改 llm_provider 字段手动切换
     llm_provider: str = "agnes"            # agnes | deepseek
 
     # Agnes（多模态平台，OpenAI 兼容；AGNES_API_KEY 已配置在用户级环境变量）

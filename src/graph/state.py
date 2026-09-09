@@ -41,12 +41,5 @@ class RAGState(TypedDict, total=False):
     final_answer: str                # 经降级处理后的最终回复（含"未找到"话术）
     # Annotated + operator.add：多节点并行/顺序执行时 trace 追加而非覆盖
     trace: Annotated[list[str], operator.add]  # 执行轨迹（前端展示 / 调试用）
-
-
-def trace(state: RAGState, msg: str) -> None:
-    """向 state.trace 追加一条轨迹。
-
-    用途：把 Agent 的中间决策暴露出来（演示时的杀手锏：面试官能看到思考过程）。
-    注意：LangGraph 节点返回「增量 dict」合并进 state，因此这里直接修改传入的副本即可。
-    """
-    state.setdefault("trace", []).append(msg)
+    # 写入方式统一为「节点在返回的增量 dict 里带 trace: [msg]」——
+    # 不要在节点内原地 mutate（LangGraph 以返回值为准做 channel 合并，原地改不可靠）
