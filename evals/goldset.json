@@ -11,7 +11,7 @@
       "kind": "numeric"
     },
     {
-      "id": "茅台-numeric-5",
+      "id": "茅台-numeric-5-2",
       "company": "茅台",
       "question": "贵州茅台2024年归属于上市公司股东的净利润是多少？",
       "answer_substr": "86,228,146,421.62",
@@ -21,7 +21,7 @@
       "kind": "numeric"
     },
     {
-      "id": "茅台-numeric-5",
+      "id": "茅台-numeric-5-3",
       "company": "茅台",
       "question": "贵州茅台2024年经营活动产生的现金流量净额是多少？",
       "answer_substr": "92,463,692,168.43",
@@ -31,7 +31,7 @@
       "kind": "numeric"
     },
     {
-      "id": "茅台-numeric-5",
+      "id": "茅台-numeric-5-4",
       "company": "茅台",
       "question": "贵州茅台2024年末的总资产是多少？",
       "answer_substr": "298,944,579,918.70",
@@ -41,7 +41,7 @@
       "kind": "numeric"
     },
     {
-      "id": "茅台-numeric-5",
+      "id": "茅台-numeric-5-5",
       "company": "茅台",
       "question": "贵州茅台2024年基本每股收益是多少？",
       "answer_substr": "68.64",
@@ -53,7 +53,7 @@
       "kind": "numeric"
     },
     {
-      "id": "茅台-numeric-5",
+      "id": "茅台-numeric-5-6",
       "company": "茅台",
       "question": "贵州茅台2024年营业收入同比增长了多少？",
       "answer_substr": "15.71",
@@ -65,7 +65,7 @@
       "kind": "numeric"
     },
     {
-      "id": "茅台-numeric-5",
+      "id": "茅台-numeric-5-7",
       "company": "茅台",
       "question": "贵州茅台2024年归母净利润的同比增速是多少？",
       "answer_substr": "15.38",
@@ -87,7 +87,7 @@
       "kind": "numeric"
     },
     {
-      "id": "宁德-numeric-9",
+      "id": "宁德-numeric-9-2",
       "company": "宁德",
       "question": "宁德时代2024年归属于上市公司股东的净利润（单位：千元）是多少？",
       "answer_substr": "50,744,682",
@@ -97,7 +97,7 @@
       "kind": "numeric"
     },
     {
-      "id": "宁德-numeric-9",
+      "id": "宁德-numeric-9-3",
       "company": "宁德",
       "question": "宁德时代2024年经营活动产生的现金流量净额（单位：千元）是多少？",
       "answer_substr": "96,990,345",
@@ -107,7 +107,7 @@
       "kind": "numeric"
     },
     {
-      "id": "宁德-numeric-9",
+      "id": "宁德-numeric-9-4",
       "company": "宁德",
       "question": "宁德时代2024年基本每股收益是多少？",
       "answer_substr": "11.58",
@@ -119,7 +119,7 @@
       "kind": "numeric"
     },
     {
-      "id": "宁德-numeric-9",
+      "id": "宁德-numeric-9-5",
       "company": "宁德",
       "question": "宁德时代2024年营业收入同比变化率是多少？",
       "answer_substr": "9.70",
@@ -131,7 +131,7 @@
       "kind": "numeric"
     },
     {
-      "id": "宁德-numeric-9",
+      "id": "宁德-numeric-9-6",
       "company": "宁德",
       "question": "宁德时代2024年净利润的同比增速是多少？",
       "answer_substr": "15.01",
@@ -143,7 +143,7 @@
       "kind": "numeric"
     },
     {
-      "id": "宁德-numeric-9",
+      "id": "宁德-numeric-9-7",
       "company": "宁德",
       "question": "宁德时代2024年第四季度的营业收入（单位：千元）是多少？",
       "answer_substr": "102,967,805",
@@ -177,7 +177,7 @@
       "kind": "numeric"
     },
     {
-      "id": "比亚迪-numeric-11",
+      "id": "比亚迪-numeric-11-2",
       "company": "比亚迪",
       "question": "比亚迪2024年经营活动产生的现金流量净额是多少？",
       "answer_substr": "133,453,873,000.00",
@@ -189,7 +189,7 @@
       "kind": "numeric"
     },
     {
-      "id": "比亚迪-numeric-11",
+      "id": "比亚迪-numeric-11-3",
       "company": "比亚迪",
       "question": "比亚迪2024年基本每股收益是多少？",
       "answer_substr": "13.84",
@@ -201,7 +201,7 @@
       "kind": "numeric"
     },
     {
-      "id": "比亚迪-numeric-11",
+      "id": "比亚迪-numeric-11-4",
       "company": "比亚迪",
       "question": "比亚迪2024年扣除非经常性损益后的净利润是多少？",
       "answer_substr": "36,982,887,000.00",
@@ -213,7 +213,7 @@
       "kind": "numeric"
     },
     {
-      "id": "比亚迪-numeric-11",
+      "id": "比亚迪-numeric-11-5",
       "company": "比亚迪",
       "question": "比亚迪2024年净利润的同比增速是多少？",
       "answer_substr": "34.00",
@@ -225,7 +225,7 @@
       "kind": "numeric"
     },
     {
-      "id": "比亚迪-numeric-10",
+      "id": "比亚迪-numeric-10-2",
       "company": "比亚迪",
       "question": "比亚迪2024年营业收入同比增速是多少？",
       "answer_substr": "29.02",
@@ -237,7 +237,7 @@
       "kind": "numeric"
     },
     {
-      "id": "比亚迪-numeric-11",
+      "id": "比亚迪-numeric-11-6",
       "company": "比亚迪",
       "question": "比亚迪2024年经营现金流同比变化率是多少？",
       "answer_substr": "21.37",

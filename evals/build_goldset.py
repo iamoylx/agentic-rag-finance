@@ -24,7 +24,8 @@ PDF_CATL = "宁德时代_2024年年度报告.pdf"
 PDF_BYD = "比亚迪_2024年年度报告.pdf"
 
 
-def _q(company: str, question: str, answer: str, pdf: str, page: int, kind: str = "numeric") -> dict:
+def _q(company: str, question: str, answer: str, pdf: str, page: int, kind: str = "numeric",
+       seq: int = 0) -> dict:
     # 单位口径别名：同一数值在年报不同报表里可能是「元」或「千元」口径
     # （如主要会计数据页 777,102,455,000.00 元 ↔ 合并利润表 777,102,455 千元），
     # 检索命中任一口径都算命中；主口径仍须通过「在指定页存在」的自检
@@ -33,7 +34,9 @@ def _q(company: str, question: str, answer: str, pdf: str, page: int, kind: str 
         aliases.append(answer[:-7])           # 去掉千位段的 ,000.00 → 千元口径
     if kind == "numeric" and re.fullmatch(r"-?\d+\.\d+", answer):
         aliases.append(answer + "%")
-    return {"id": f"{company}-{kind}-{page}", "company": company, "question": question,
+    # id 带序号：同一页常有多道题，裸 {company}-{kind}-{page} 会撞 id（评测卫生 bug，S7 复盘修复）
+    suf = f"-{seq}" if seq else ""
+    return {"id": f"{company}-{kind}-{page}{suf}", "company": company, "question": question,
             "answer_substr": answer, "aliases": aliases,
             "source_pdf": pdf, "source_page": page, "kind": kind}
 

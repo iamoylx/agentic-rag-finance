@@ -1,0 +1,466 @@
+{
+  "n": 26,
+  "strict": {
+    "hit": 13,
+    "acc": 0.5
+  },
+  "valid": {
+    "hit": 23,
+    "acc": 0.8846153846153846
+  },
+  "results": [
+    {
+      "id": "茅台-numeric-5",
+      "gold_page": 5,
+      "valid_pages": [
+        5,
+        8,
+        63,
+        108
+      ],
+      "cited": [
+        5,
+        8,
+        63
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "茅台-numeric-5-2",
+      "gold_page": 5,
+      "valid_pages": [
+        5,
+        35,
+        64,
+        70,
+        108
+      ],
+      "cited": [
+        35
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "茅台-numeric-5-3",
+      "gold_page": 5,
+      "valid_pages": [
+        5,
+        8,
+        67,
+        116
+      ],
+      "cited": [
+        66
+      ],
+      "strict_ok": false,
+      "valid_ok": false
+    },
+    {
+      "id": "茅台-numeric-5-4",
+      "gold_page": 5,
+      "valid_pages": [
+        5,
+        59,
+        61
+      ],
+      "cited": [
+        5
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "茅台-numeric-5-5",
+      "gold_page": 5,
+      "valid_pages": [
+        5,
+        65,
+        142
+      ],
+      "cited": [
+        5
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "茅台-numeric-5-6",
+      "gold_page": 5,
+      "valid_pages": [
+        5,
+        8
+      ],
+      "cited": [
+        5,
+        8
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "茅台-numeric-5-7",
+      "gold_page": 5,
+      "valid_pages": [
+        5,
+        8,
+        112
+      ],
+      "cited": [
+        8
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "宁德-numeric-9",
+      "gold_page": 9,
+      "valid_pages": [
+        9,
+        19,
+        111,
+        119,
+        196,
+        197
+      ],
+      "cited": [
+        111,
+        119
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "宁德-numeric-9-2",
+      "gold_page": 9,
+      "valid_pages": [
+        9,
+        120,
+        126,
+        196
+      ],
+      "cited": [
+        17
+      ],
+      "strict_ok": false,
+      "valid_ok": false
+    },
+    {
+      "id": "宁德-numeric-9-3",
+      "gold_page": 9,
+      "valid_pages": [
+        9,
+        25,
+        123,
+        202
+      ],
+      "cited": [
+        25,
+        202
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "宁德-numeric-9-4",
+      "gold_page": 9,
+      "valid_pages": [
+        9,
+        28,
+        121,
+        228
+      ],
+      "cited": [
+        9,
+        228
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "宁德-numeric-9-5",
+      "gold_page": 9,
+      "valid_pages": [
+        9,
+        19,
+        111
+      ],
+      "cited": [
+        111,
+        9
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "宁德-numeric-9-6",
+      "gold_page": 9,
+      "valid_pages": [
+        9,
+        17
+      ],
+      "cited": [
+        9
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "宁德-numeric-9-7",
+      "gold_page": 9,
+      "valid_pages": [
+        9
+      ],
+      "cited": [
+        9
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-numeric-10",
+      "gold_page": 10,
+      "valid_pages": [
+        10,
+        24,
+        145,
+        228,
+        273
+      ],
+      "cited": [],
+      "strict_ok": false,
+      "valid_ok": false
+    },
+    {
+      "id": "比亚迪-numeric-11",
+      "gold_page": 11,
+      "valid_pages": [
+        11,
+        145,
+        147,
+        227,
+        236
+      ],
+      "cited": [
+        11
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-numeric-11-2",
+      "gold_page": 11,
+      "valid_pages": [
+        11,
+        34,
+        149,
+        239
+      ],
+      "cited": [
+        248,
+        239,
+        155
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-numeric-11-3",
+      "gold_page": 11,
+      "valid_pages": [
+        3,
+        11,
+        145,
+        236,
+        289
+      ],
+      "cited": [
+        289
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-numeric-11-4",
+      "gold_page": 11,
+      "valid_pages": [
+        11
+      ],
+      "cited": [
+        11
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-numeric-11-5",
+      "gold_page": 11,
+      "valid_pages": [
+        3,
+        11,
+        188
+      ],
+      "cited": [
+        11
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-numeric-10-2",
+      "gold_page": 10,
+      "valid_pages": [
+        3,
+        10,
+        14,
+        24
+      ],
+      "cited": [
+        273,
+        14,
+        153
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-numeric-11-6",
+      "gold_page": 11,
+      "valid_pages": [
+        11,
+        34,
+        77
+      ],
+      "cited": [
+        34
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-qualitative-10",
+      "gold_page": 10,
+      "valid_pages": [
+        10,
+        50,
+        72,
+        102,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141
+      ],
+      "cited": [
+        72,
+        136,
+        102
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "贵州茅台-qualitative-7",
+      "gold_page": 7,
+      "valid_pages": [
+        7,
+        56,
+        74
+      ],
+      "cited": [
+        7
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    },
+    {
+      "id": "宁德时代-qualitative-13",
+      "gold_page": 13,
+      "valid_pages": [
+        6,
+        11,
+        12,
+        13,
+        14,
+        15,
+        17,
+        18,
+        19,
+        20,
+        28,
+        34,
+        35,
+        37,
+        51,
+        52,
+        81,
+        136,
+        153,
+        164,
+        165,
+        177,
+        197,
+        215,
+        216,
+        226,
+        227
+      ],
+      "cited": [
+        11,
+        136,
+        227
+      ],
+      "strict_ok": false,
+      "valid_ok": true
+    },
+    {
+      "id": "比亚迪-qualitative-22",
+      "gold_page": 22,
+      "valid_pages": [
+        2,
+        3,
+        4,
+        10,
+        13,
+        14,
+        15,
+        16,
+        20,
+        21,
+        22,
+        23,
+        24,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        42,
+        49,
+        55,
+        56,
+        57,
+        59,
+        61,
+        97,
+        98,
+        157,
+        170,
+        188,
+        201,
+        262,
+        268
+      ],
+      "cited": [
+        22,
+        157
+      ],
+      "strict_ok": true,
+      "valid_ok": true
+    }
+  ]
+}

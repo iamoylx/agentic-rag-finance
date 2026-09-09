@@ -1,44 +1,60 @@
 {
   "n": 26,
-  "recall5": {
-    "dense_only": 0.9230769230769231,
-    "bm25_only": 0.2692307692307692,
-    "hybrid(RRF)": 0.8846153846153846,
-    "hybrid+rerank": 0.9615384615384616
+  "paths": {
+    "dense_only": {
+      "recall5": 0.9230769230769231,
+      "mrr5": 0.7352564102564103,
+      "ndcg5": 0.8491183897261982
+    },
+    "bm25_only": {
+      "recall5": 0.2692307692307692,
+      "mrr5": 0.16987179487179488,
+      "ndcg5": 0.7230866159492644
+    },
+    "hybrid(RRF)": {
+      "recall5": 0.8846153846153846,
+      "mrr5": 0.7,
+      "ndcg5": 0.834741498663995
+    },
+    "hybrid+rerank": {
+      "recall5": 0.9615384615384616,
+      "mrr5": 0.6858974358974359,
+      "ndcg5": 0.8137694893121594
+    }
   },
   "misses": {
     "dense_only": [
-      "宁德-numeric-9",
-      "比亚迪-numeric-11"
+      "宁德-numeric-9-7",
+      "比亚迪-numeric-11-4"
     ],
     "bm25_only": [
       "茅台-numeric-5",
-      "茅台-numeric-5",
-      "茅台-numeric-5",
-      "茅台-numeric-5",
-      "茅台-numeric-5",
-      "茅台-numeric-5",
+      "茅台-numeric-5-3",
+      "茅台-numeric-5-4",
+      "茅台-numeric-5-5",
+      "茅台-numeric-5-6",
+      "茅台-numeric-5-7",
       "宁德-numeric-9",
-      "宁德-numeric-9",
-      "宁德-numeric-9",
-      "宁德-numeric-9",
-      "宁德-numeric-9",
+      "宁德-numeric-9-2",
+      "宁德-numeric-9-3",
+      "宁德-numeric-9-4",
+      "宁德-numeric-9-7",
       "比亚迪-numeric-10",
       "比亚迪-numeric-11",
-      "比亚迪-numeric-11",
-      "比亚迪-numeric-11",
-      "比亚迪-numeric-11",
+      "比亚迪-numeric-11-3",
+      "比亚迪-numeric-11-4",
+      "比亚迪-numeric-11-5",
       "贵州茅台-qualitative-7",
       "宁德时代-qualitative-13",
       "比亚迪-qualitative-22"
     ],
     "hybrid(RRF)": [
-      "宁德-numeric-9",
-      "比亚迪-numeric-11",
+      "宁德-numeric-9-7",
+      "比亚迪-numeric-11-4",
       "宁德时代-qualitative-13"
     ],
     "hybrid+rerank": [
-      "比亚迪-numeric-10"
+      "比亚迪-numeric-10-2"
     ]
   }
 }

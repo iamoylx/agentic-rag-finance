@@ -10,13 +10,16 @@
 |---|---|---|
 | 文档解析 | PyMuPDF `find_tables()` 表格结构化，页眉页脚清洗，bbox 去重 | 662 页真实年报 → 842 个表格块，数字零错位 |
 | 分块 | 递归分块 + 表格整块保护（超长按行切分重复表头）+ 上下文前缀注入 | 10,014 分块 |
-| 检索 | BM25(jieba+财报词典) + BGE-M3 dense → **加权 RRF** → BGE-Reranker-v2-m3 | Recall@5 **0.962** |
+| 检索 | BM25(jieba+财报词典) + BGE-M3 dense → **加权 RRF** → BGE-Reranker-v2-m3 | Recall@5 **0.962** / MRR@5 0.686 / nDCG@5 0.814（四通路消融见 METRICS） |
 | Agent 图 | Adaptive（路由直答/单跳/多跳）+ Corrective（相关性过滤→改写→联网降级）+ Self-RAG（纯正则数值回溯校验→带失败提示重生成→兜底拒绝） | 陷阱拒绝率 0.75，幻觉自动重生成闭环 |
 | 服务 | FastAPI + SSE（route/trace/status/token/citation/done 事件族）+ fakeredis 缓存 | 二次同问 26.9s → **0ms** |
 | 前端 | 免构建玻璃拟态三栏：对话流（打字机）/ Agent 轨迹时间线 / 引用徽章 | 见 `web/index.html` |
+| 溯源 | 答案带页码引用 + 引用有效性扫描（语料构建「有效页集合」） | 引用有效率 **0.885**（防幻觉引用）/ 严格命中金标页 0.500（页码多义性分析见 METRICS） |
 
 **最有面试价值的发现**：等权 RRF 会被 BM25 长尾噪声稀释（dense 单路 0.923 → 等权融合 0.692），
-加权 RRF（dense:bm25 = 0.7:0.3）恢复到 0.885，CrossEncoder 精排后 0.962。消融详见 METRICS.md。
+加权 RRF（dense:bm25 = 0.7:0.3）恢复到 0.885，CrossEncoder 精排后 0.962；但 MRR@5/nDCG@5
+揭示精排优化的是 top-5 覆盖而非 top-1 精度（dense_only MRR 0.735 > 精排 0.686）——
+指标越细，优化方向越明确。消融与引用双口径详见 METRICS.md。
 
 ## 快速开始
 
