@@ -1,0 +1,491 @@
+{
+  "n": 26,
+  "note": "基线复现自检通过后才产出；dense_only/bm25_only 为端点锚点",
+  "baseline_reproduced": {
+    "dense_only": {
+      "recall5": 0.9230769230769231,
+      "mrr5": 0.7352564102564103,
+      "ndcg5": 0.8491183897261982
+    },
+    "bm25_only": {
+      "recall5": 0.2692307692307692,
+      "mrr5": 0.16987179487179488,
+      "ndcg5": 0.7230866159492644
+    },
+    "hybrid(RRF)": {
+      "recall5": 0.8846153846153846,
+      "mrr5": 0.7,
+      "ndcg5": 0.834741498663995
+    },
+    "hybrid+rerank": {
+      "recall5": 0.9615384615384616,
+      "mrr5": 0.6858974358974359,
+      "ndcg5": 0.8137694893121594
+    }
+  },
+  "weight_grid": [
+    {
+      "w_dense": 1.0,
+      "w_bm25": 0.0,
+      "no_rerank": {
+        "recall5": 0.9230769230769231,
+        "mrr5": 0.7352564102564103,
+        "ndcg5": 0.8491183897261982
+      },
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.6858974358974359,
+        "ndcg5": 0.8163619607994026
+      },
+      "rerank_misses": [
+        "比亚迪-numeric-10-2"
+      ]
+    },
+    {
+      "w_dense": 0.9,
+      "w_bm25": 0.1,
+      "no_rerank": {
+        "recall5": 0.8846153846153846,
+        "mrr5": 0.7224358974358975,
+        "ndcg5": 0.8485850960645596
+      },
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.6858974358974359,
+        "ndcg5": 0.8163619607994026
+      },
+      "rerank_misses": [
+        "比亚迪-numeric-10-2"
+      ]
+    },
+    {
+      "w_dense": 0.8,
+      "w_bm25": 0.2,
+      "no_rerank": {
+        "recall5": 0.8846153846153846,
+        "mrr5": 0.7032051282051283,
+        "ndcg5": 0.8339773910204289
+      },
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.6858974358974359,
+        "ndcg5": 0.8163619607994026
+      },
+      "rerank_misses": [
+        "比亚迪-numeric-10-2"
+      ]
+    },
+    {
+      "w_dense": 0.7,
+      "w_bm25": 0.3,
+      "no_rerank": {
+        "recall5": 0.8846153846153846,
+        "mrr5": 0.7,
+        "ndcg5": 0.834741498663995
+      },
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.6858974358974359,
+        "ndcg5": 0.8137694893121594
+      },
+      "rerank_misses": [
+        "比亚迪-numeric-10-2"
+      ]
+    },
+    {
+      "w_dense": 0.6,
+      "w_bm25": 0.4,
+      "no_rerank": {
+        "recall5": 0.8076923076923077,
+        "mrr5": 0.633974358974359,
+        "ndcg5": 0.8277369531641131
+      },
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.6858974358974359,
+        "ndcg5": 0.8137694893121594
+      },
+      "rerank_misses": [
+        "比亚迪-numeric-10-2"
+      ]
+    },
+    {
+      "w_dense": 0.5,
+      "w_bm25": 0.5,
+      "no_rerank": {
+        "recall5": 0.7307692307692307,
+        "mrr5": 0.4743589743589744,
+        "ndcg5": 0.7461931998227429
+      },
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "rerank_misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    },
+    {
+      "w_dense": 0.4,
+      "w_bm25": 0.6,
+      "no_rerank": {
+        "recall5": 0.4230769230769231,
+        "mrr5": 0.3153846153846154,
+        "ndcg5": 0.8180553333590486
+      },
+      "rerank": {
+        "recall5": 0.5769230769230769,
+        "mrr5": 0.5192307692307693,
+        "ndcg5": 0.9222216746916195
+      },
+      "rerank_misses": [
+        "茅台-numeric-5",
+        "茅台-numeric-5-3",
+        "茅台-numeric-5-4",
+        "茅台-numeric-5-6",
+        "茅台-numeric-5-7",
+        "宁德-numeric-9-4",
+        "宁德-numeric-9-7",
+        "比亚迪-numeric-10",
+        "比亚迪-numeric-11-4",
+        "比亚迪-numeric-11-5",
+        "宁德时代-qualitative-13"
+      ]
+    },
+    {
+      "w_dense": 0.3,
+      "w_bm25": 0.7,
+      "no_rerank": {
+        "recall5": 0.4230769230769231,
+        "mrr5": 0.3153846153846154,
+        "ndcg5": 0.8180553333590486
+      },
+      "rerank": {
+        "recall5": 0.5769230769230769,
+        "mrr5": 0.5192307692307693,
+        "ndcg5": 0.9222216746916195
+      },
+      "rerank_misses": [
+        "茅台-numeric-5",
+        "茅台-numeric-5-3",
+        "茅台-numeric-5-4",
+        "茅台-numeric-5-6",
+        "茅台-numeric-5-7",
+        "宁德-numeric-9-4",
+        "宁德-numeric-9-7",
+        "比亚迪-numeric-10",
+        "比亚迪-numeric-11-4",
+        "比亚迪-numeric-11-5",
+        "宁德时代-qualitative-13"
+      ]
+    },
+    {
+      "w_dense": 0.2,
+      "w_bm25": 0.8,
+      "no_rerank": {
+        "recall5": 0.4230769230769231,
+        "mrr5": 0.3153846153846154,
+        "ndcg5": 0.8180553333590486
+      },
+      "rerank": {
+        "recall5": 0.5769230769230769,
+        "mrr5": 0.5192307692307693,
+        "ndcg5": 0.9222216746916195
+      },
+      "rerank_misses": [
+        "茅台-numeric-5",
+        "茅台-numeric-5-3",
+        "茅台-numeric-5-4",
+        "茅台-numeric-5-6",
+        "茅台-numeric-5-7",
+        "宁德-numeric-9-4",
+        "宁德-numeric-9-7",
+        "比亚迪-numeric-10",
+        "比亚迪-numeric-11-4",
+        "比亚迪-numeric-11-5",
+        "宁德时代-qualitative-13"
+      ]
+    },
+    {
+      "w_dense": 0.1,
+      "w_bm25": 0.9,
+      "no_rerank": {
+        "recall5": 0.4230769230769231,
+        "mrr5": 0.3346153846153846,
+        "ndcg5": 0.8307216079811159
+      },
+      "rerank": {
+        "recall5": 0.5769230769230769,
+        "mrr5": 0.5192307692307693,
+        "ndcg5": 0.9222216746916195
+      },
+      "rerank_misses": [
+        "茅台-numeric-5",
+        "茅台-numeric-5-3",
+        "茅台-numeric-5-4",
+        "茅台-numeric-5-6",
+        "茅台-numeric-5-7",
+        "宁德-numeric-9-4",
+        "宁德-numeric-9-7",
+        "比亚迪-numeric-10",
+        "比亚迪-numeric-11-4",
+        "比亚迪-numeric-11-5",
+        "宁德时代-qualitative-13"
+      ]
+    },
+    {
+      "w_dense": 0.0,
+      "w_bm25": 1.0,
+      "no_rerank": {
+        "recall5": 0.23076923076923078,
+        "mrr5": 0.15705128205128205,
+        "ndcg5": 0.7602677186074751
+      },
+      "rerank": {
+        "recall5": 0.5769230769230769,
+        "mrr5": 0.5192307692307693,
+        "ndcg5": 0.9222216746916195
+      },
+      "rerank_misses": [
+        "茅台-numeric-5",
+        "茅台-numeric-5-3",
+        "茅台-numeric-5-4",
+        "茅台-numeric-5-6",
+        "茅台-numeric-5-7",
+        "宁德-numeric-9-4",
+        "宁德-numeric-9-7",
+        "比亚迪-numeric-10",
+        "比亚迪-numeric-11-4",
+        "比亚迪-numeric-11-5",
+        "宁德时代-qualitative-13"
+      ]
+    }
+  ],
+  "best_by_recall": {
+    "w_dense": 0.5,
+    "w_bm25": 0.5,
+    "rerank": {
+      "recall5": 0.9615384615384616,
+      "mrr5": 0.7256410256410256,
+      "ndcg5": 0.8268447858759322
+    }
+  },
+  "current_config": {
+    "w_dense": 0.7,
+    "w_bm25": 0.3,
+    "rerank": {
+      "recall5": 0.9615384615384616,
+      "mrr5": 0.6858974358974359,
+      "ndcg5": 0.8137694893121594
+    }
+  },
+  "safe_band": {
+    "w_dense_min": 0.5,
+    "w_dense_max": 1.0,
+    "best_r5": 0.9615384615384616
+  },
+  "cliff": {
+    "from": 0.5,
+    "to": 0.4,
+    "r5_from": 0.9615384615384616,
+    "r5_to": 0.5769230769230769
+  },
+  "k_grid": [
+    {
+      "k": 1,
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    },
+    {
+      "k": 3,
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    },
+    {
+      "k": 5,
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    },
+    {
+      "k": 10,
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    },
+    {
+      "k": 20,
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    },
+    {
+      "k": 40,
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    },
+    {
+      "k": 60,
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    },
+    {
+      "k": 100,
+      "rerank": {
+        "recall5": 0.9615384615384616,
+        "mrr5": 0.7256410256410256,
+        "ndcg5": 0.8268447858759322
+      },
+      "misses": [
+        "比亚迪-numeric-11-4"
+      ]
+    }
+  ],
+  "k_stability": {
+    "avg_union": 37.69230769230769,
+    "avg_overlap": 1.5384615384615385,
+    "detail": [
+      {
+        "k": 1,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 3,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 5,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 10,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 20,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 40,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 60,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 100,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      }
+    ]
+  },
+  "paired_test": {
+    "compare": "dense 0.5 vs 0.7（精排模式）",
+    "changed_questions": 8,
+    "n": 26,
+    "mean_delta_mrr": 0.03974358974358974,
+    "ci95": [
+      -0.04807692307692308,
+      0.13397435897435897
+    ],
+    "significant": false,
+    "detail": [
+      {
+        "id": "茅台-numeric-5",
+        "rr_07": 0.5,
+        "rr_05": 1.0
+      },
+      {
+        "id": "茅台-numeric-5-2",
+        "rr_07": 0.5,
+        "rr_05": 1.0
+      },
+      {
+        "id": "茅台-numeric-5-7",
+        "rr_07": 1.0,
+        "rr_05": 0.5
+      },
+      {
+        "id": "宁德-numeric-9-3",
+        "rr_07": 0.25,
+        "rr_05": 0.3333333333333333
+      },
+      {
+        "id": "比亚迪-numeric-11-4",
+        "rr_07": 0.5,
+        "rr_05": 0.0
+      },
+      {
+        "id": "比亚迪-numeric-11-5",
+        "rr_07": 0.25,
+        "rr_05": 0.5
+      },
+      {
+        "id": "比亚迪-numeric-10-2",
+        "rr_07": 0.0,
+        "rr_05": 0.2
+      },
+      {
+        "id": "比亚迪-qualitative-22",
+        "rr_07": 0.5,
+        "rr_05": 1.0
+      }
+    ]
+  }
+}
