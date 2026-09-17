@@ -20,7 +20,7 @@
     "hybrid+rerank": {
       "recall5": 0.9615384615384616,
       "mrr5": 0.6858974358974359,
-      "ndcg5": 0.8137694893121594
+      "ndcg5": 0.8126832125904155
     }
   },
   "weight_grid": [
@@ -35,7 +35,7 @@
       "rerank": {
         "recall5": 0.9615384615384616,
         "mrr5": 0.6858974358974359,
-        "ndcg5": 0.8163619607994026
+        "ndcg5": 0.8152871579749985
       },
       "rerank_misses": [
         "比亚迪-numeric-10-2"
@@ -52,7 +52,7 @@
       "rerank": {
         "recall5": 0.9615384615384616,
         "mrr5": 0.6858974358974359,
-        "ndcg5": 0.8163619607994026
+        "ndcg5": 0.8152871579749985
       },
       "rerank_misses": [
         "比亚迪-numeric-10-2"
@@ -69,7 +69,7 @@
       "rerank": {
         "recall5": 0.9615384615384616,
         "mrr5": 0.6858974358974359,
-        "ndcg5": 0.8163619607994026
+        "ndcg5": 0.8152871579749985
       },
       "rerank_misses": [
         "比亚迪-numeric-10-2"
@@ -86,7 +86,7 @@
       "rerank": {
         "recall5": 0.9615384615384616,
         "mrr5": 0.6858974358974359,
-        "ndcg5": 0.8137694893121594
+        "ndcg5": 0.8126832125904155
       },
       "rerank_misses": [
         "比亚迪-numeric-10-2"
@@ -103,7 +103,7 @@
       "rerank": {
         "recall5": 0.9615384615384616,
         "mrr5": 0.6858974358974359,
-        "ndcg5": 0.8137694893121594
+        "ndcg5": 0.8126832125904155
       },
       "rerank_misses": [
         "比亚迪-numeric-10-2"
@@ -277,7 +277,7 @@
     "rerank": {
       "recall5": 0.9615384615384616,
       "mrr5": 0.6858974358974359,
-      "ndcg5": 0.8137694893121594
+      "ndcg5": 0.8126832125904155
     }
   },
   "safe_band": {
@@ -381,6 +381,200 @@
       ]
     }
   ],
+  "k_grid_by_config": {
+    "best": {
+      "w_dense": 0.5,
+      "w_bm25": 0.5,
+      "rows": [
+        {
+          "k": 1,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.7256410256410256,
+            "ndcg5": 0.8268447858759322
+          },
+          "misses": [
+            "比亚迪-numeric-11-4"
+          ]
+        },
+        {
+          "k": 3,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.7256410256410256,
+            "ndcg5": 0.8268447858759322
+          },
+          "misses": [
+            "比亚迪-numeric-11-4"
+          ]
+        },
+        {
+          "k": 5,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.7256410256410256,
+            "ndcg5": 0.8268447858759322
+          },
+          "misses": [
+            "比亚迪-numeric-11-4"
+          ]
+        },
+        {
+          "k": 10,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.7256410256410256,
+            "ndcg5": 0.8268447858759322
+          },
+          "misses": [
+            "比亚迪-numeric-11-4"
+          ]
+        },
+        {
+          "k": 20,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.7256410256410256,
+            "ndcg5": 0.8268447858759322
+          },
+          "misses": [
+            "比亚迪-numeric-11-4"
+          ]
+        },
+        {
+          "k": 40,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.7256410256410256,
+            "ndcg5": 0.8268447858759322
+          },
+          "misses": [
+            "比亚迪-numeric-11-4"
+          ]
+        },
+        {
+          "k": 60,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.7256410256410256,
+            "ndcg5": 0.8268447858759322
+          },
+          "misses": [
+            "比亚迪-numeric-11-4"
+          ]
+        },
+        {
+          "k": 100,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.7256410256410256,
+            "ndcg5": 0.8268447858759322
+          },
+          "misses": [
+            "比亚迪-numeric-11-4"
+          ]
+        }
+      ]
+    },
+    "current": {
+      "w_dense": 0.7,
+      "w_bm25": 0.3,
+      "rows": [
+        {
+          "k": 1,
+          "rerank": {
+            "recall5": 0.9230769230769231,
+            "mrr5": 0.6891025641025641,
+            "ndcg5": 0.8300791578525927
+          },
+          "misses": [
+            "比亚迪-numeric-11-4",
+            "比亚迪-numeric-10-2"
+          ]
+        },
+        {
+          "k": 3,
+          "rerank": {
+            "recall5": 0.9230769230769231,
+            "mrr5": 0.6858974358974359,
+            "ndcg5": 0.8306860486873329
+          },
+          "misses": [
+            "比亚迪-numeric-11-4",
+            "比亚迪-numeric-10-2"
+          ]
+        },
+        {
+          "k": 5,
+          "rerank": {
+            "recall5": 0.9230769230769231,
+            "mrr5": 0.6858974358974359,
+            "ndcg5": 0.8324596092077158
+          },
+          "misses": [
+            "比亚迪-numeric-11-4",
+            "比亚迪-numeric-10-2"
+          ]
+        },
+        {
+          "k": 10,
+          "rerank": {
+            "recall5": 0.9230769230769231,
+            "mrr5": 0.6858974358974359,
+            "ndcg5": 0.8289757877687135
+          },
+          "misses": [
+            "比亚迪-numeric-11-4",
+            "比亚迪-numeric-10-2"
+          ]
+        },
+        {
+          "k": 20,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.6858974358974359,
+            "ndcg5": 0.8126832125904155
+          },
+          "misses": [
+            "比亚迪-numeric-10-2"
+          ]
+        },
+        {
+          "k": 40,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.6858974358974359,
+            "ndcg5": 0.8126832125904155
+          },
+          "misses": [
+            "比亚迪-numeric-10-2"
+          ]
+        },
+        {
+          "k": 60,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.6858974358974359,
+            "ndcg5": 0.8126832125904155
+          },
+          "misses": [
+            "比亚迪-numeric-10-2"
+          ]
+        },
+        {
+          "k": 100,
+          "rerank": {
+            "recall5": 0.9615384615384616,
+            "mrr5": 0.6858974358974359,
+            "ndcg5": 0.8126832125904155
+          },
+          "misses": [
+            "比亚迪-numeric-10-2"
+          ]
+        }
+      ]
+    }
+  },
   "k_stability": {
     "avg_union": 37.69230769230769,
     "avg_overlap": 1.5384615384615385,
@@ -430,6 +624,108 @@
       {
         "k": 100,
         "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      }
+    ]
+  },
+  "k_stability_by_config": {
+    "best": [
+      {
+        "k": 1,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 3,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 5,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 10,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 20,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 40,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 60,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 100,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      }
+    ],
+    "current": [
+      {
+        "k": 1,
+        "identical_candidate_sets": 0,
+        "n": 26,
+        "metrics_unchanged": false
+      },
+      {
+        "k": 3,
+        "identical_candidate_sets": 0,
+        "n": 26,
+        "metrics_unchanged": false
+      },
+      {
+        "k": 5,
+        "identical_candidate_sets": 0,
+        "n": 26,
+        "metrics_unchanged": false
+      },
+      {
+        "k": 10,
+        "identical_candidate_sets": 0,
+        "n": 26,
+        "metrics_unchanged": false
+      },
+      {
+        "k": 20,
+        "identical_candidate_sets": 21,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 40,
+        "identical_candidate_sets": 21,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 60,
+        "identical_candidate_sets": 26,
+        "n": 26,
+        "metrics_unchanged": true
+      },
+      {
+        "k": 100,
+        "identical_candidate_sets": 23,
         "n": 26,
         "metrics_unchanged": true
       }

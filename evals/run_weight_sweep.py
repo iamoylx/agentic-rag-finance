@@ -9,7 +9,8 @@ RRF 权重扫描（2026-09-17 补做，回答「权重怎么调的」这一面�
          记录的数字逐一对齐。对不上就说明本次环境/代码与当初不同，曲线不可信 → 直接退出。
   阶段 1  权重扫描：dense:bm25 从 1.0:0.0 扫到 0.0:1.0（11 点），每点测「不加精排 / 加精排」
          两套指标；并把端点与基线交叉验证（1.0:0.0 无精排应≈dense_only）。
-  阶段 2  RRF k 值扫描：在最优权重下扫 k（平滑常数），看它对指标的敏感性。
+  阶段 2  RRF k 值扫描：在「最优权重」与「仓库当前权重」两套配置下各扫一遍 k（平滑常数），
+         看它对指标的敏感性——只在一套权重下验证 k 不敏感，不足以支撑部署配置的结论。
 
 零 LLM 消耗：全部为本地嵌入 + BM25 + CrossEncoder。
 运行：cd 项目根 && .venv/Scripts/python.exe evals/run_weight_sweep.py
@@ -197,19 +198,30 @@ def main() -> None:
           f"  (R@5={cur['rerank']['recall5']:.3f} MRR@5={cur['rerank']['mrr5']:.3f})\n")
 
     # ==================================================================
-    # 阶段 2：k 值扫描（在最优权重下）
+    # 阶段 2：k 值扫描（在「最优权重」与「仓库当前权重」两套配置下各扫一遍）
+    #   为什么必须两套都扫：k 只压平「两路名次差」的贡献，而两路候选集被选进
+    #   候选窗口的构成本身随 dense:bm25 权重变化 → 只在一套权重下证明「k 不敏感」
+    #   不足以支撑「部署配置也不用调 k」的结论（面试容易被追问这一点）。
     # ==================================================================
     print("=" * 78)
-    print(f"阶段 2  RRF k 值扫描（dense:bm25 = {best['w_dense']}:{best['w_bm25']} 固定）")
+    print("阶段 2  RRF k 值扫描（最优权重 / 仓库当前权重，各扫一遍）")
     print("=" * 78)
-    print(f"  {'k':>5} | {'R@5':>6} {'MRR@5':>6} {'nDCG@5':>7} (加精排) | miss")
-    print("  " + "-" * 62)
-    k_sweep = []
-    for k in K_GRID:
-        m_rr, miss_rr = run(best["w_dense"], best["w_bm25"], use_rerank=True, k=k)
-        k_sweep.append({"k": k, "rerank": m_rr, "misses": miss_rr})
-        print(f"  {k:>5} | {m_rr['recall5']:>6.3f} {m_rr['mrr5']:>6.3f} {m_rr['ndcg5']:>7.3f}"
-              f"       | {len(miss_rr)}")
+    k_configs = [("best", best), ("current", cur)]
+    k_sweep_by_cfg: dict[str, dict] = {}
+    for tag, cfg in k_configs:
+        label = "最优" if tag == "best" else "当前"
+        print(f"\n  ── {label}配置 dense:bm25 = {cfg['w_dense']}:{cfg['w_bm25']} ──")
+        print(f"  {'k':>5} | {'R@5':>6} {'MRR@5':>6} {'nDCG@5':>7} (加精排) | miss")
+        print("  " + "-" * 62)
+        rows = []
+        for k in K_GRID:
+            m_rr, miss_rr = run(cfg["w_dense"], cfg["w_bm25"], use_rerank=True, k=k)
+            rows.append({"k": k, "rerank": m_rr, "misses": miss_rr})
+            print(f"  {k:>5} | {m_rr['recall5']:>6.3f} {m_rr['mrr5']:>6.3f}"
+                  f" {m_rr['ndcg5']:>7.3f}       | {len(miss_rr)}")
+        k_sweep_by_cfg[tag] = {"w_dense": cfg["w_dense"], "w_bm25": cfg["w_bm25"],
+                               "rows": rows}
+    k_sweep = k_sweep_by_cfg["best"]["rows"]   # 兼容旧字段
     print()
 
     # ==================================================================
@@ -219,39 +231,49 @@ def main() -> None:
     print("阶段 3  候选集稳定性分析（为什么 k 值不影响最终指标）")
     print("=" * 78)
     ref_k = settings.rrf_k
-    cand_sets: dict[int, list[frozenset]] = {}
-    for k in K_GRID:
-        sets = []
-        for p in pre:
-            fused = rrf_fuse(p["bm25"], p["dense"], k=k,
-                             weights=[best["w_bm25"], best["w_dense"]])
-            sets.append(frozenset(_key(d) for d, _ in fused[:settings.top_k_retrieve]))
-        cand_sets[k] = sets
+    cand_sets_by_cfg: dict[str, dict[int, list[frozenset]]] = {}
+    for tag, cfg in k_configs:
+        per_k = {}
+        for k in K_GRID:
+            sets = []
+            for p in pre:
+                fused = rrf_fuse(p["bm25"], p["dense"], k=k,
+                                 weights=[cfg["w_bm25"], cfg["w_dense"]])
+                sets.append(frozenset(_key(d) for d, _ in fused[:settings.top_k_retrieve]))
+            per_k[k] = sets
+        cand_sets_by_cfg[tag] = per_k
 
     uni, inter = [], []
     for p in pre:
         b = {_key(d) for d in p["bm25"]}
-        n = {_key(d) for d in p["dense"]}
-        uni.append(len(b | n))
-        inter.append(len(b & n))
+        d_ = {_key(d) for d in p["dense"]}
+        uni.append(len(b | d_))
+        inter.append(len(b & d_))
     avg = lambda xs: sum(xs) / len(xs)  # noqa: E731
     print(f"  两路各取 Top-{settings.top_k_retrieve}：平均并集 {avg(uni):.1f} 个块，"
           f"平均重叠 {avg(inter):.1f} 个块")
     print(f"  （并集 {avg(uni):.1f} > 候选窗口 {settings.top_k_retrieve} → "
           f"融合后只淘汰 {avg(uni) - settings.top_k_retrieve:.1f} 个两路都排最末的块，与 k 无关）")
-    print()
-    print(f"  {'k':>5} | 候选 Top-20 集合与 k={ref_k} 完全一致的题数 | 指标是否变化")
-    print("  " + "-" * 66)
-    ref_sets = cand_sets[ref_k]
-    k_stability = []
-    for k in K_GRID:
-        same = sum(1 for a, b in zip(cand_sets[k], ref_sets) if a == b)
-        m = next(x["rerank"] for x in k_sweep if x["k"] == k)
-        unchanged = abs(m["recall5"] - best["rerank"]["recall5"]) < 1e-9
-        k_stability.append({"k": k, "identical_candidate_sets": same, "n": len(pre),
-                            "metrics_unchanged": unchanged})
-        print(f"  {k:>5} | {same}/{len(pre):>3} 题完全相同"
-              f"{'':<22} | {'否（指标一致）' if unchanged else '是 ⚠️'}")
+
+    k_stability_by_cfg: dict[str, list] = {}
+    for tag, cfg in k_configs:
+        label = "最优" if tag == "best" else "当前"
+        ref_sets = cand_sets_by_cfg[tag][ref_k]
+        rows = k_sweep_by_cfg[tag]["rows"]
+        detail = []
+        print(f"\n  ── {label}配置 dense:bm25 = {cfg['w_dense']}:{cfg['w_bm25']} ──")
+        print(f"  {'k':>5} | 候选 Top-20 集合与 k={ref_k} 完全一致的题数 | 指标是否变化")
+        print("  " + "-" * 66)
+        for k in K_GRID:
+            same = sum(1 for a, b in zip(cand_sets_by_cfg[tag][k], ref_sets) if a == b)
+            m = next(x["rerank"] for x in rows if x["k"] == k)
+            unchanged = abs(m["recall5"] - cfg["rerank"]["recall5"]) < 1e-9
+            detail.append({"k": k, "identical_candidate_sets": same, "n": len(pre),
+                           "metrics_unchanged": unchanged})
+            print(f"  {k:>5} | {same}/{len(pre):>3} 题完全相同"
+                  f"{'':<22} | {'否（指标一致）' if unchanged else '是 ⚠️'}")
+        k_stability_by_cfg[tag] = detail
+    k_stability = k_stability_by_cfg["best"]   # 兼容旧字段
     print()
 
     # 安全带区间（精排模式 R@5 达到最优的权重区间）与断崖
@@ -322,8 +344,12 @@ def main() -> None:
                       "best_r5": top_r},
         "cliff": cliff,
         "k_grid": k_sweep,
+        "k_grid_by_config": {
+            t: {"w_dense": v["w_dense"], "w_bm25": v["w_bm25"], "rows": v["rows"]}
+            for t, v in k_sweep_by_cfg.items()},
         "k_stability": {"avg_union": avg(uni), "avg_overlap": avg(inter),
                         "detail": k_stability},
+        "k_stability_by_config": k_stability_by_cfg,
         "paired_test": {"compare": "dense 0.5 vs 0.7（精排模式）",
                         "changed_questions": len(changed), "n": n,
                         "mean_delta_mrr": mean_d, "ci95": [lo, hi],
