@@ -19,6 +19,9 @@ data/chroma/
 web/node_modules/
 web/dist/
 
+# 本地学习手册（不入库：体量大，且非项目产物）
+docs/
+
 # 日志与临时
 logs/
 .tmp/

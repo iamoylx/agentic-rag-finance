@@ -33,6 +33,7 @@ class Engine:
         self.checkpointer = MemorySaver()
         self.lock = threading.Lock()   # ingest 重建时挡并发
         self.ready = False
+        self.corpus_fp = "cold-start"   # 兜底：startup 跑完前 cache_get 不炸
 
     # ---------- 启动：解析 data/raw 全部 PDF 并建索引 ----------
     def startup(self) -> int:
@@ -57,6 +58,7 @@ class Engine:
         fp = hashlib.md5(
             ",".join(f"{p.name}:{p.stat().st_mtime_ns}" for p in pdfs).encode("utf-8")
         ).hexdigest()
+        self.corpus_fp = fp   # 存到实例上，给 cache_key 用
 
         if cache.exists():
             lines = cache.read_text(encoding="utf-8").splitlines()
@@ -119,6 +121,11 @@ class Engine:
             src = str(pdf_path)
             merged = [d for d in old if d.metadata.get("source") != src] + new_docs
             self._build(merged)
+            # 语料变了，指纹跟着变（重新扫 raw_dir 算全量 fp，和 build_corpus 同一公式）
+            pdfs = sorted(settings.raw_dir.glob("*.pdf"))
+            self.corpus_fp = hashlib.md5(
+                ",".join(f"{p.name}:{p.stat().st_mtime_ns}" for p in pdfs).encode("utf-8")
+            ).hexdigest()
         return len(new_docs)
 
     # ---------- 高频问答缓存（Redis / fakeredis）----------
@@ -137,10 +144,11 @@ class Engine:
                 cls._redis = fakeredis.FakeRedis(decode_responses=True)
         return cls._redis
 
-    @staticmethod
-    def cache_key(question: str) -> str:
+    def cache_key(self, question: str) -> str:
         norm = "".join(question.split()).lower()
-        return "rag:ans:" + hashlib.md5(norm.encode("utf-8")).hexdigest()
+        raw = f"{self.corpus_fp}:{norm}"
+        return "rag:ans:" + hashlib.md5(raw.encode("utf-8")).hexdigest()
+
 
     def cache_get(self, question: str) -> dict | None:
         raw = self._cache_client().get(self.cache_key(question))
