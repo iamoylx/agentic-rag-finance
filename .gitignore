@@ -13,6 +13,7 @@ models/
 data/raw/
 data/parsed/
 data/chroma/
+data/db/
 *.pdf
 
 # 前端
