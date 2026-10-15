@@ -128,3 +128,60 @@ def test_year_is_verified_not_held_forever():
     assert gate.feed("贵州茅台") == "贵州茅台"
     assert gate.feed("2024年") == "2024年"
     assert gate.violated is False
+
+
+# =====================================================================
+# 闸门：小数点边界（一个真实修过的坑）
+# =====================================================================
+
+def test_bare_decimal_point_is_held_as_incomplete_number():
+    """裸小数点必须是「还没拼完」，不能当数字终止符。
+
+    修复前的 bug：_TRAILING_NUM_RE 写成 `\\.\\d+`（点后至少一位数字），
+    于是 "68." 不匹配 → 裸小数点被当成终止符 → "68" 当场判定并放行。
+    模型其实还在拼 "68.64"，中间态就漏上了屏。
+    改成 `\\.\\d*`（零位或多位）后，裸小数点算未拼完 → 整体继续扣。
+    """
+    gate = NumericHoldBackGate(CORPUS)
+    assert gate.feed("每股收益为") == "每股收益为"
+    assert gate.feed("68") == ""      # 数字未定型
+    assert gate.feed(".") == ""       # ★修复点：裸小数点也不许放行
+    assert gate.feed("64") == ""      # 仍在拼
+    assert gate.feed("元。") == "68.64元。"
+    assert gate.violated is False
+
+
+def test_fabricated_number_sharing_prefix_with_real_one_never_reaches_screen():
+    """编造数字与真实数字共享前缀时，前缀也不许上屏。
+
+    语料里只有 1,234，模型编造成 1,234.56。
+    修复前：feed(".") 会把 "1,234." 放行（把 1,234 当成了完整数字），
+    屏幕出现了编造数字的前缀；权威校验虽最终判 False，但要等 reset 才擦掉。
+    修复后：小数点后继续扣 → 拼齐 1,234.56 才判定 → 全段拦死，
+    屏幕上只留下正文。
+    """
+    corpus = norm_num("营业收入为1,234元。")
+    gate = NumericHoldBackGate(corpus)
+    shown = "".join(gate.feed(c) for c in ["营业收入为", "1,234", ".", "56", "元"])
+    assert shown == "营业收入为"          # 一个数字字符都没上屏
+    assert gate.violated is True
+    assert gate.flush() == ""             # violated 后 flush 也不放
+
+
+def test_prefix_of_legit_number_is_never_falsely_flagged():
+    """闸门成立的前提：missing_numbers 是**子串**判定，所以合法数字的任何前缀
+    必然仍是该数字的子串 → 永远不会被误判成编造。
+
+    注意这条用例与「小数点边界」是两件事：它**在旧正则下同样通过**，
+    因为它测的不是扣留时机，而是**匹配语义**。它的作用是护栏——
+    一旦有人把 missing_numbers 改成精确匹配/集合相等，闸门立刻开始过度拦截
+    真数字（前缀 "170" 不再被认为是 "170899152276.34" 的一部分）→ 这条会红。
+    """
+    gate = NumericHoldBackGate(CORPUS)
+    assert gate.feed("营收为") == "营收为"
+    # 逐段喂入 170,899,152,276.34 的各个前缀：都应「扣住且未误判」
+    for c in ["170,", "899,", "152,", "276.34"]:
+        assert gate.feed(c) == "", f"数字未拼完就放行了: {c!r}"
+        assert gate.violated is False, f"合法数字的前缀 {c!r} 被误判成编造"
+    assert gate.feed("元") == "170,899,152,276.34元"
+    assert gate.violated is False
