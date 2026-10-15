@@ -44,6 +44,18 @@ class Engine:
         self.ready = True
         return len(docs)
 
+    def _compute_corpus_fp(self, pdfs: list[Path] | None = None) -> str:
+        """语料指纹：raw_dir 当前所有 PDF 的「文件名+mtime」摘要。
+
+        单一真相源。传 pdfs 则复用外部已 glob 的列表（避免两次 glob 的 TOCTOU），
+        不传则自己扫目录（ingest 路径用）。
+        """
+        if pdfs is None:
+            pdfs = sorted(settings.raw_dir.glob("*.pdf"))
+        return hashlib.md5(
+            ",".join(f"{p.name}:{p.stat().st_mtime_ns}" for p in pdfs).encode("utf-8")
+        ).hexdigest()
+
     # ---------- 语料构建（带 fingerprint 缓存）----------
     def build_corpus(self) -> tuple[list[Document], list[dict]]:
         """解析 raw 全部 PDF → 切块 → 语料 jsonl 缓存。
@@ -55,10 +67,7 @@ class Engine:
         """
         cache = settings.parsed_dir / "corpus.jsonl"
         pdfs = sorted(settings.raw_dir.glob("*.pdf"))
-        fp = hashlib.md5(
-            ",".join(f"{p.name}:{p.stat().st_mtime_ns}" for p in pdfs).encode("utf-8")
-        ).hexdigest()
-        self.corpus_fp = fp   # 存到实例上，给 cache_key 用
+        fp = self._compute_corpus_fp(pdfs)
 
         if cache.exists():
             lines = cache.read_text(encoding="utf-8").splitlines()
@@ -109,6 +118,7 @@ class Engine:
         """由 docs 全量重建检索器与图。调用方负责持锁。"""
         self.retriever = HybridRetriever(docs)
         self.graph = build_rag_graph(self.retriever, checkpointer=self.checkpointer)
+        self.corpus_fp = self._compute_corpus_fp()
 
     # ---------- 入库：增量追加一个 PDF 并重建 ----------
     def ingest(self, pdf_path: Path, company: str = "", year: str = "") -> int:
@@ -121,11 +131,7 @@ class Engine:
             src = str(pdf_path)
             merged = [d for d in old if d.metadata.get("source") != src] + new_docs
             self._build(merged)
-            # 语料变了，指纹跟着变（重新扫 raw_dir 算全量 fp，和 build_corpus 同一公式）
-            pdfs = sorted(settings.raw_dir.glob("*.pdf"))
-            self.corpus_fp = hashlib.md5(
-                ",".join(f"{p.name}:{p.stat().st_mtime_ns}" for p in pdfs).encode("utf-8")
-            ).hexdigest()
+
         return len(new_docs)
 
     # ---------- 高频问答缓存（Redis / fakeredis）----------
@@ -148,7 +154,6 @@ class Engine:
         norm = "".join(question.split()).lower()
         raw = f"{self.corpus_fp}:{norm}"
         return "rag:ans:" + hashlib.md5(raw.encode("utf-8")).hexdigest()
-
 
     def cache_get(self, question: str) -> dict | None:
         raw = self._cache_client().get(self.cache_key(question))
