@@ -317,6 +317,9 @@ async function send() {
           traceStep("check_hallucination",
             (data.passed ? "数值校验通过" : "数值校验失败，触发重生成") +
             `<span class="badge ${data.passed ? "" : "bad"}">${data.passed ? "PASS" : "REGEN"}</span>`);
+        } else if (ev === "reset") {
+          answer = "";
+          bub.innerHTML = '<span class="cursor"></span>';
         } else if (ev === "token") {
           answer += data.t;
           bub.textContent = answer;
@@ -324,6 +327,7 @@ async function send() {
         } else if (ev === "citation") {
           cits.push(data);
         } else if (ev === "done") {
+          if (data.answer) bub.textContent = data.answer;
           addCites(bot, cits);
           bot.querySelector(".role").textContent = "Agent · " + data.elapsed_ms + "ms" + (data.cached ? " · 缓存命中" : "");
           loadStoreStats(); // 每轮落库后刷新存储运维条

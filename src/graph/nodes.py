@@ -22,13 +22,10 @@ from src.core.config import settings
 from src.core.llm import get_cheap_llm, get_llm
 from src.graph.state import RAGState
 from src.retrieval.hybrid import HybridRetriever
-
-_NUM_RE = re.compile(r"\d[\d,，]*(?:\.\d+)?")
-
-
-def _norm_num(s: str) -> str:
-    """数字归一化：去千分位/中文逗号，便于「答案数字 vs 原文数字」匹配。"""
-    return s.replace(",", "").replace("，", "").rstrip(".")
+# 数字规则下沉到 src/safety/number_rules.py（零重依赖叶子模块）：
+# 流式显示闸门要用同一套规则，但流式层不该为了几个正则去加载 torch。
+from src.safety.number_rules import NUM_RE as _NUM_RE
+from src.safety.number_rules import build_corpus_norm, missing_numbers, norm_num as _norm_num
 
 
 def _parse_json(text: str) -> dict | list | None:
@@ -285,17 +282,16 @@ def check_hallucination(state: RAGState) -> dict:
 
     原理：金融场景数值错报是事故级风险，靠「生成后回溯校验」兜底而非指望模型自觉。
           纯规则实现：零 LLM 成本、可解释、可单测。
+
+    保证的边界（面试常被追问，务必说清）：它拦的是「**编造**」——
+    答案里的数字必须在检索片段中出现过；但它**拦不住「选错但真实存在」的数字**
+    （答非所问由 GEN_PROMPT 第 3 条禁令兜）。所以准确表述是「杜绝数值编造」，
+    而不是「保证回答正确」。
     """
     answer = state.get("answer", "")
-    docs = state.get("documents", [])
-    corpus = "\n".join(d.page_content for d in docs)
-    corpus_norm = _norm_num(corpus)
+    corpus_norm = build_corpus_norm(state.get("documents", []))
 
-    nums = {_norm_num(m.group()) for m in _NUM_RE.finditer(answer)}
-    # 过滤噪声：页码引用（通常1-3位且伴随"第X页"）与序号不计入
-    meaningful = {n for n in nums if len(n.replace(".", "")) >= 2}
-    missing = [n for n in meaningful if n not in corpus_norm]
-
+    missing = missing_numbers(answer, corpus_norm)
     passed = not missing
     msg = "数值校验通过" if passed else f"数值校验失败, 原文缺失: {missing[:3]}"
     return {"hallucination_passed": passed, "trace": [msg]}

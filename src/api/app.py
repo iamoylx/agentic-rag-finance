@@ -26,12 +26,21 @@ from sse_starlette.sse import EventSourceResponse
 from src.api import store
 from src.api.engine import engine
 from src.api.schemas import ChatRequest, HealthResponse, IngestRequest
+from src.safety.number_gate import NumericHoldBackGate
+from src.safety.number_rules import build_corpus_norm
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 from src.core.config import settings
 
 # 会产生「最终答案」token 的节点；路由/打分/改写节点的 LLM 输出不应混进答案流
 _ANSWER_NODES = {"generate", "direct_answer", "fallback_answer"}
+
+# 需要过「数值显示闸门」的节点——只此一个，有明确依据：
+#   check_hallucination 只挂在 generate 之后（direct 分支直接到 END，不校验），
+#   所以只有 generate 的输出承诺了「数字都经过校验」。给 direct_answer 也加闸门
+#   会「过度拦截」：它本就没有语料可比对，任何数字都会被判编造，
+#   屏幕上会莫名其妙少内容，而权威校验其实从未对它提出过这个要求。
+_GATED_NODES = {"generate"}
 
 
 @asynccontextmanager
@@ -103,6 +112,11 @@ async def _chat_gen(req: ChatRequest):
                   "web_used": False, "trace": []}
     config = {"configurable": {"thread_id": thread_id}}
     sent_tokens, answer_text, final_state = 0, "", {}
+    # 数值显示闸门的两个状态：比对语料 + 闸门实例本身。
+    # corpus_norm 只能等检索结果到达才拿得到（它来自 state["documents"]），
+    # 所以闸门必须**延迟创建**——这就是「要控制这个 stream 才能做 hold-back」的具体含义。
+    corpus_norm = ""
+    gate: NumericHoldBackGate | None = None
 
     try:
         stream = engine.graph.astream(init_state, config=config,
@@ -113,6 +127,12 @@ async def _chat_gen(req: ChatRequest):
                 for node, update in payload.items():
                     for line in update.get("trace", []):
                         yield _sse("trace", {"node": node, "msg": line})
+                    # retrieve / grade_documents / web_search 都可能在 generate 之前设 documents。
+                    # 一旦语料（或它带来的检索结果）变了，旧闸门的比对母本即作废 → 重建。
+                    # 此刻还在出 token 之前，所以置空不会丢已扣留的内容。
+                    if "documents" in update:
+                        corpus_norm = build_corpus_norm(update["documents"])
+                        gate = None
                     if node == "route_query" and "route" in update:
                         yield _sse("route", {"route": update["route"],
                                              "query": update.get("query_used", req.question)})
@@ -129,16 +149,33 @@ async def _chat_gen(req: ChatRequest):
                     elif node == "web_search":
                         yield _sse("status", {"node": "web_search"})
                     elif node == "check_hallucination":
-                        yield _sse("status", {"node": "check",
-                                              "passed": update.get("hallucination_passed")})
+                        passed = update.get("hallucination_passed")
+                        yield _sse("status", {"node": "check", "passed": passed})
+                        if not passed:
+                            # 本轮答案作废：连闸门一起丢弃（含正在扣留的尾巴），
+                            # 下一轮 generate 会新建一个干净闸门，不会继承上一轮的 violated。
+                            gate = None
+                            yield _sse("reset", {})
             elif mode == "messages":
                 # payload 形如 (AIMessageChunk, metadata)，metadata.langgraph_node 标明来源节点
                 msg, meta = payload
                 content = msg.content if isinstance(msg.content, str) else ""
-                if meta.get("langgraph_node") in _ANSWER_NODES and content:
+                node = meta.get("langgraph_node")
+                if node in _GATED_NODES and content:
+                    # 走闸门：未校验完的数字扣在 buffer 里，本帧可能什么都不放行
+                    if gate is None:
+                        gate = NumericHoldBackGate(corpus_norm)
+                    content = gate.feed(content)
+                if node in _ANSWER_NODES and content:
                     sent_tokens += len(content)
-                    answer_text += content
                     yield _sse("token", {"t": content})
+
+        # 流已结束：把闸门扣住的尾巴放行（否则以数字结尾的答案会永久少一截）
+        if gate is not None:
+            tail = gate.flush()
+            if tail:
+                sent_tokens += len(tail)
+                yield _sse("token", {"t": tail})
 
         # 兜底：个别 OpenAI 兼容网关不支持流式回调 → 一次性补发完整答案
         if sent_tokens == 0:
@@ -159,10 +196,10 @@ async def _chat_gen(req: ChatRequest):
         yield _sse("done", {"answer": answer_text, "cached": False,
                             "elapsed_ms": elapsed})
 
-        # 落历史（MySQL/SQLite）+ 缓存（只缓存有真实依据的成功回答）
+        # 落历史（MySQL/SQLite）+ 缓存（只缓存通过数值校验的成功回答，fallback 话术不缓存）
         await asyncio.to_thread(store.append_turn,
                                 thread_id, req.question, answer_text, elapsed, False)
-        if fresh_session and answer_text and cits:
+        if fresh_session and answer_text and cits and final_state.values.get("hallucination_passed") is True:
             engine.cache_set(req.question, {"answer": answer_text, "citations": cits})
 
     except Exception as e:   # 任何环节炸了都以前端能渲染的方式收尾，绝不静默断流
