@@ -112,6 +112,8 @@
   .badge { display:inline-block; font-size:10px; padding:1px 8px; border-radius:999px; background:rgba(255,255,255,0.12); margin-left:6px; }
   .badge.bad { background:rgba(255,120,120,0.25); }
   .cursor { display:inline-block; width:2px; height:14px; background:#fff; animation: blink 1s infinite; vertical-align:middle; }
+  /* 「自纠中」提示：沿用黑白灰单色调，只用左侧竖线 + 降透明度区分，不引入新色相 */
+  .selfheal { display:inline-block; font-size:13px; opacity:.72; border-left:2px solid rgba(255,255,255,.35); padding-left:8px; margin-right:6px; }
   @keyframes blink { 50% { opacity:0; } }
 </style>
 </head>
@@ -282,7 +284,7 @@ async function send() {
   const bot = bubble("bot", "");
   const bub = bot.querySelector(".bubble");
   bub.innerHTML = '<span class="cursor"></span>';
-  const cits = []; let answer = "";
+  const cits = []; let answer = ""; let resetN = 0;
 
   try {
     const resp = await fetch(API + "/api/chat", {
@@ -318,8 +320,15 @@ async function send() {
             (data.passed ? "数值校验通过" : "数值校验失败，触发重生成") +
             `<span class="badge ${data.passed ? "" : "bad"}">${data.passed ? "PASS" : "REGEN"}</span>`);
         } else if (ev === "reset") {
-          answer = "";
-          bub.innerHTML = '<span class="cursor"></span>';
+          // 数值校验失败 → 后端已撤回本轮回答，这里负责把气泡重画。
+          // 刻意不留成空白（用户会以为卡住），而是给出「自纠中」的可视提示：
+          // 这正好是「安全」与「可见」兼得的形态——错误数值一个字符都没上过屏，
+          // 而 agent 的自纠动作是看得见的（配合 trace 面板的 REGEN 徽标）。
+          // 提示不做特殊保留：下一个 token 到达时 textContent 会整体覆盖它。
+          answer = ""; resetN++;
+          bub.innerHTML = '<span class="selfheal">数值对不上原文，已撤回本轮回答' +
+            (resetN > 1 ? `（第 ${resetN} 次）` : "") +
+            '，正在重新生成…</span><span class="cursor"></span>';
         } else if (ev === "token") {
           answer += data.t;
           bub.textContent = answer;
