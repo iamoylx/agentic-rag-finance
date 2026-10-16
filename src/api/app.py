@@ -178,6 +178,15 @@ async def _chat_gen(req: ChatRequest):
                 yield _sse("token", {"t": tail})
 
         # 兜底：个别 OpenAI 兼容网关不支持流式回调 → 一次性补发完整答案
+        #
+        # 这条路径**刻意不过闸门**，理由（容易被误当漏洞，特此写清）：
+        #   走到这里说明 messages 流一个 token 都没出来，屏幕上本来就是空的，
+        #   「扣留未校验内容」这个目标无事可做；
+        #   而这里取的 final_answer 已经是**权威校验之后的**结果——
+        #   校验通过时 finalize 把它定格为原答案，失败时 fallback_answer 把它换成降级话术，
+        #   所以补发的内容要么已验证、要么根本不含数值承诺，不存在泄漏。
+        #   反例警示：如果给它也套上闸门，direct_answer 分支（语料为空、本就不做数值承诺）
+        #   会因为「任何数字都查不到」而被整体拦掉，屏幕上莫名其妙变空。
         if sent_tokens == 0:
             final_state = await asyncio.to_thread(
                 engine.graph.get_state, config
