@@ -55,6 +55,13 @@
 |---|---|---|
 | ![reset1](assets/gate-reset-1.png) | ![reset2](assets/gate-reset-2.png) | ![passed](assets/gate-passed.png) |
 
+> 截图取自**脚本化流**的高保真前端台（真 FastAPI + 真静态页，只把图换成按脚本吐事件的假图）——
+> 因为撤回提示只出现几秒，用真实模型抓拍不稳定。**真实 LLM 下的证据则是协议级的**：
+> `evals/run_gate_realllm_check.py` 走真模型、真 SSE，**逐帧重建「屏幕上出现过什么」**再判
+> （比截图更强——截图证明不了「一个数字从未出现过」）。实测数十次真实请求：
+> **泄漏帧 0、非法边界帧 0、无损 100%**；并多次捕获真实撤回，例如屏幕停在
+> `'777,102,455 - 602,315,354 = '` —— **算出来的结果被闸门扣住，从未上屏**。
+
 完整前端（Agent 轨迹时间线 + 页码引用徽章）：`assets/frontend-trace.png`。
 设计权衡与方案支配关系分析见 **[DESIGN-streaming-gate.md](DESIGN-streaming-gate.md)**。
 
@@ -69,7 +76,12 @@ python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 
 # 1) 模型：BGE-M3 与 BGE-Reranker-v2-m3 放到 models/ 目录（huggingface.co/BAAI）
-#    .env 里配置 LLM（DeepSeek 或任意 OpenAI 兼容网关）与 TAVILY_API_KEY，参考 .env.example
+#    .env 里配置 LLM 与 TAVILY_API_KEY，参考 .env.example
+#    LLM 提供方二选一（改 LLM_PROVIDER 即可，上层代码无感）：
+#      LLM_PROVIDER=deepseek  LLM_MODEL=deepseek-flash  DEEPSEEK_THINKING=disabled
+#      LLM_PROVIDER=agnes     （免费额度；偶发 429，单发可过连发必限）
+#    ★ DeepSeek-V4 起「思考模式」默认开启：思维链 token 按输出计费（成本高数倍）
+#      且会吃掉 max_tokens 预算（content 可能整段为空），故本项目默认关闭。
 
 # 2) 放入年报 PDF 到 data/raw/（文件名约定：公司名_年份年年度报告.pdf）
 
@@ -124,8 +136,21 @@ python evals/run_trap_eval.py        # 诱导幻觉陷阱拒绝率 → evals/tra
 
 ```bash
 python -m pytest -q            # 59 passed（testpaths=tests，约 31s；一次性的模型导入占 ~19s）
-python evals/bench_gate_overhead.py   # 闸门性能实测（零 LLM 消耗）
+python evals/bench_gate_overhead.py        # 闸门性能实测（零 LLM 消耗）
+python evals/run_gate_realllm_check.py     # 真实 LLM 下的闸门验证（真模型+真SSE，约 ¥0.03）
+python evals/run_e2e_eval.py --limit 3 --cap 0.5   # 端到端试点（约 ¥0.012，产物写 e2e_pilot.json）
+python evals/run_e2e_eval.py               # 端到端全量 26 条（约 ¥0.08，3 分钟）
 ```
+
+> 后三条会**真实消耗 LLM 余额**，且需先停 8300 服务（GPU 显存）。
+> 成本可观测：`src/core/cost.py` 挂在 LangChain 回调上逐次记账（含缓存命中分档计价 +
+> 高峰/空闲时段自动判别），`--cap` 超预算时**优雅中止并保留已完成结果**，不会崩在半路。
+>
+> **真实 LLM 实测（2026-10-16，DeepSeek-V4.1-Flash）**：端到端 26 条 **22/26 = 0.846**，
+> 耗时 179s、77 次调用、实测成本 **¥0.0825**。与之前的 Agnes 结果**同分**（0.846 vs 0.846），
+> 速度 **2.3 倍**；更关键的是**失败题几乎不动**——4 道失败题里 3 道完全相同
+> （茅台经营现金流、宁德千元口径、比亚迪营收增速），题干级判定一致率 **24/26 = 0.923**
+> → **瓶颈在检索链路与口径规则，不在生成模型**。详见 METRICS.md。
 
 | 文件 | 用例 | 验的是什么 |
 |---|---|---|

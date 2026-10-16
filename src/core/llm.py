@@ -36,6 +36,22 @@ def _resolve_provider() -> tuple[str, str, str]:
     raise ValueError(f"未知 llm_provider: {settings.llm_provider}（可选 agnes / deepseek）")
 
 
+def _thinking_extra_body() -> dict:
+    """DeepSeek 的思考模式开关（OpenAI 格式要求放在 extra_body 里）。
+
+    用途：把 DeepSeek-V4「默认开启的思考模式」关掉。
+    原理：不关的话思维链 token 计入**输出**计费（成本高数倍），且会吃掉 max_tokens
+          预算（Agnes 那个「过小则返回空 content」的坑同款）。
+          只对 deepseek 生效——agnes 不认这个参数，传了可能报错。
+    """
+    if settings.llm_provider.lower() != "deepseek":
+        return {}
+    mode = (settings.deepseek_thinking or "").strip().lower()
+    if mode in ("", "default"):
+        return {}
+    return {"thinking": {"type": mode}}
+
+
 @lru_cache(maxsize=8)
 def get_llm(temperature: float | None = None, max_tokens: int | None = None) -> ChatOpenAI:
     """获取 LLM 实例。
@@ -44,6 +60,7 @@ def get_llm(temperature: float | None = None, max_tokens: int | None = None) -> 
     参数：temperature 覆盖默认（默认 0，RAG 要确定性输出）；max_tokens 同理。
     """
     api_key, base_url, model = _resolve_provider()
+    extra = _thinking_extra_body()
     return ChatOpenAI(
         model=model,
         api_key=api_key,
@@ -55,6 +72,7 @@ def get_llm(temperature: float | None = None, max_tokens: int | None = None) -> 
         # SSE 打字机效果的前提：langgraph stream_mode="messages" 依赖
         # on_llm_new_token 回调，而非流式调用只会一次性吐完整消息
         streaming=True,
+        **({"extra_body": extra} if extra else {}),
     )
 
 

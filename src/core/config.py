@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 4096             # 注意：agnes 需 ≥256，过小会整段返回空
     llm_timeout: int = 120
 
+    # DeepSeek-V4 起「思考模式」默认开启（effort=high），对本项目有两个副作用：
+    #   ① 思维链的 token 计入输出计费 → 成本可高出数倍；
+    #   ② 输出预算会被思考消耗掉，max_tokens 偏小时 content 可能为空
+    #      —— 这正是 Agnes 那个坑的同款（见 llm.py 模块 docstring）。
+    # 本项目是「照原文答数」的 RAG，不需要长链推理，故默认关闭；
+    # 想对比思考模式对准确率的贡献时改这一项即可（可选 enabled | disabled）。
+    deepseek_thinking: str = "disabled"
+
     # ---------- 联网降级（Corrective RAG 的兜底检索）----------
     tavily_api_key: str = ""
     web_search_max_results: int = 3

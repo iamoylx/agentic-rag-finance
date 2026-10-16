@@ -26,3 +26,6 @@ docs/
 # 日志与临时
 logs/
 .tmp/
+
+# 评测试点产物（run_e2e_eval.py --limit 的输出；不覆盖正式 e2e_result.json，也不入库）
+evals/e2e_pilot.json

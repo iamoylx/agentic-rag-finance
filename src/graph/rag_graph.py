@@ -105,15 +105,20 @@ def build_rag_graph(retriever: HybridRetriever, checkpointer=None):
     return g.compile(checkpointer=checkpointer or MemorySaver())
 
 
-def answer(graph, question: str, thread_id: str = "default") -> dict:
+def answer(graph, question: str, thread_id: str = "default", callbacks=None) -> dict:
     """便捷调用：跑完整图并返回最终 state。
 
     thread_id 用于 checkpointer 区分会话（多轮追问「那2024年呢」依赖它）。
+    callbacks 用于挂成本计量等观察者（如 src/core/cost.py 的 CostTracker）——
+              走 LangChain 回调体系，业务节点无需感知。
     """
+    config: dict = {"configurable": {"thread_id": thread_id}}
+    if callbacks:
+        config["callbacks"] = callbacks
     final = graph.invoke(
         {"question": question, "query_used": question,
          "retrieve_rounds": 0, "rewrite_count": 0, "regen_count": 0,
          "web_used": False, "trace": []},
-        config={"configurable": {"thread_id": thread_id}},
+        config=config,
     )
     return final
