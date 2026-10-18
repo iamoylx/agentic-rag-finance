@@ -70,31 +70,107 @@
 
 ## 快速开始
 
+> **需要准备三样外部资源**（都不在仓库里）：① 本地 Embedding/Rerank 模型约 **4.3 GB**；
+> ② 几份年报 PDF；③ 一个 LLM API Key。下面给的是**可直接复制执行**的步骤。
+
+### 0) 装依赖
+
 ```bash
-# 0) 环境：Python 3.12，GPU 可选（CPU 亦能跑，嵌入更慢）
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-
-# 1) 模型：BGE-M3 与 BGE-Reranker-v2-m3 放到 models/ 目录（huggingface.co/BAAI）
-#    .env 里配置 LLM 与 TAVILY_API_KEY，参考 .env.example
-#    LLM 提供方二选一（改 LLM_PROVIDER 即可，上层代码无感）：
-#      LLM_PROVIDER=deepseek  LLM_MODEL=deepseek-flash  DEEPSEEK_THINKING=disabled
-#      LLM_PROVIDER=agnes     （免费额度；偶发 429，单发可过连发必限）
-#    ★ DeepSeek-V4 起「思考模式」默认开启：思维链 token 按输出计费（成本高数倍）
-#      且会吃掉 max_tokens 预算（content 可能整段为空），故本项目默认关闭。
-
-# 2) 放入年报 PDF 到 data/raw/（文件名约定：公司名_年份年年度报告.pdf）
-
-# 3) 建索引（首次解析约 3-5 分钟，之后走语料缓存）
-python scripts/ingest_real.py
-
-# 4) 起服务（对话历史自动持久化：配了 MYSQL_URL 走 MySQL，否则落 data/db/chats.db）
-python scripts/run_api.py          # http://127.0.0.1:8300
-
-# 5) 浏览器打开 http://127.0.0.1:8300/web/（前端由服务直接托管），或直接调 API：
-curl -N -X POST http://127.0.0.1:8300/api/chat -H "Content-Type: application/json" \
-     -d '{"question":"贵州茅台2024年营业收入是多少","session_id":"demo"}'
+.venv\Scripts\activate                 # Windows；Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
 ```
+
+GPU 可选：`torch` 装 CUDA 版会快很多，但没有独显也能跑（自动落 CPU，嵌入更慢）。
+**注意 `requirements.txt` 不含 torch**（发行版 CUDA 组合太多），请按自己的 CUDA 版本另装。
+
+### 1) 下载两个本地模型（约 4.3 GB，放到 `models/`）
+
+路径是 `.env` 里的 `EMBED_MODEL_PATH` / `RERANK_MODEL_PATH`，默认就指向 `models/bge-m3`
+与 `models/bge-reranker-v2-m3`。
+
+```bash
+pip install -U huggingface_hub
+
+# 国内网络建议先设镜像（不设则可能几 KB/s 或超时）：
+export HF_ENDPOINT=https://hf-mirror.com      # Windows PowerShell: $env:HF_ENDPOINT="https://hf-mirror.com"
+
+huggingface-cli download BAAI/bge-m3 \
+  --local-dir models/bge-m3
+huggingface-cli download BAAI/bge-reranker-v2-m3 \
+  --local-dir models/bge-reranker-v2-m3
+```
+
+备选（HF 完全不可达时）：ModelScope 上两个模型同名可搜，
+`pip install modelscope && modelscope download --model BAAI/bge-m3 --local_dir models/bge-m3`。
+
+**自检**（不加载 LLM、不建索引）：
+
+```bash
+python scripts/verify_models.py     # 校验模型能加载、dense 维度 1024、余弦区分度正常
+```
+
+> ⚠️ 已知问题：该脚本末尾的 ✅/❌ 输出在 **GBK 编码的 Windows 控制台**上会抛
+> `UnicodeEncodeError`（功能已跑完，只是最后一行打印失败）。临时绕过：
+> `chcp 65001` 后重跑，或 `python -X utf8 scripts/verify_models.py`。
+
+### 2) 配 LLM（`.env`）
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env`，二选一（改 `LLM_PROVIDER` 即可，上层代码无感）：
+
+```ini
+# A. DeepSeek（本项目实测用的就是它）
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=sk-...
+LLM_MODEL=deepseek-flash
+DEEPSEEK_THINKING=disabled
+
+# B. Agnes（免费额度，偶发 429：单发可过、连发必限）
+# LLM_PROVIDER=agnes
+# AGNES_API_KEY=...
+```
+
+> ★ DeepSeek-V4 起「思考模式」默认开启：思维链 token 按输出计费（成本高数倍），
+> 且会吃掉 `max_tokens` 预算（content 可能整段为空），故本项目默认关闭。
+
+`TAVILY_API_KEY` 可选——只有触发「检索全不相关 → 联网降级」时才用。
+**不配也能跑**，只是那条降级路径会返回明确的缺 key 错误。
+
+### 3) 放年报 PDF 到 `data/raw/`
+
+文件名约定：`公司名_年份年年度报告.pdf`（如 `贵州茅台_2024年年度报告.pdf`）。
+2024 年年报可从 **巨潮资讯网**（`cninfo.com.cn`，A 股法定披露平台，免费）或各公司官网 IR 页下载；
+本项目用的是贵州茅台 / 宁德时代 / 比亚迪 2024 年报（共 662 页）。
+
+### 4) 建索引 → 起服务
+
+```bash
+python scripts/ingest_real.py      # 首次解析+切块+向量化，约 3-5 分钟（之后走语料缓存）
+python scripts/run_api.py          # http://127.0.0.1:8300
+```
+
+打开 **http://127.0.0.1:8300/web/**（前端由服务直接托管），或直接调 API：
+
+```bash
+curl -N -X POST http://127.0.0.1:8300/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question":"贵州茅台2024年营业收入是多少","session_id":"demo"}'
+```
+
+对话历史自动持久化：配了 `MYSQL_URL` 走 MySQL，否则落 `data/db/chats.db`（零配置）。
+
+### 常见卡点
+
+| 现象 | 原因 / 处理 |
+|---|---|
+| 启动报「未读取到 DEEPSEEK_API_KEY」 | `.env` 没配或 `LLM_PROVIDER` 拼错；报错文案会点名具体变量 |
+| 模型加载失败 / 路径不存在 | 第 1 步没下完；先跑 `python scripts/verify_models.py` |
+| 建索引很慢（CPU） | 正常，10014 个分块在 CPU 上要几分钟；有 GPU 会快一个数量级 |
+| 429 / 限流 | 免费额度常见；换 DeepSeek 或降低并发 |
 
 前端除对话/轨迹/引用外还接了：**「＋ 上传PDF」入库**（`/api/ingest/upload`，实时显示分块进度）、**刷新后历史对话自动恢复**（localStorage 会话 ID + `/api/history`）、**存储层运维条**（`/api/store/stats`：MySQL/SQLite、轮次、会话数、最近写入）。
 
