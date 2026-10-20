@@ -1,0 +1,68 @@
+name: Docker
+
+# 镜像构建 + 容器内跑测试（T2 的 docker smoke test 提前塞进 CI）。
+#
+# 为什么单独一个 workflow 而不是并进 ci.yml：
+#   ① 镜像要装 torch/transformers/chromadb，构建 5-10 分钟，而 ci.yml 的目标是
+#      「PR 上 2 分钟内给结论」——两种节奏不该共用一个 check；
+#   ② 本机没有 Docker（开发环境是 Windows + 无 Docker Desktop），这条路径无法在
+#      提交前本地验证，只能靠 CI 收敛。分开跑，ci.yml 的徽章不会被它拖红。
+#
+# 为什么不在 CI 里做完整索引：
+#   BGE-M3 + Reranker 权重约 4.3 GB，且 10014 个分块冷启动在 CPU 上要很久。
+#   CI 验证的是「镜像里的代码 + 依赖能否跑通单测」，不是「索引重建」。
+#   索引与权重走卷挂载（见 docker-compose.yml），本来也不进镜像。
+#
+# 触发：手动 / 推 main 且改动涉及镜像内容 / 每周一次兜底（防依赖上游漂移）
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - requirements.txt
+      - requirements-docker.txt
+      - src/**
+      - tests/**
+      - pytest.ini
+      - .github/workflows/docker.yml
+  pull_request:
+    paths:
+      - Dockerfile
+      - requirements*.txt
+  schedule:
+    - cron: "0 3 * * 1"      # 每周一 03:00 UTC
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: docker build + 容器内 pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 构建测试阶段镜像
+        run: docker build --target test -t p1-rag:test .
+
+      - name: 容器内跑测试（默认口径）
+        run: docker run --rm p1-rag:test
+
+      - name: 构建生产镜像（默认 target，验证 compose 用的就是它）
+        run: docker build -t p1-rag:runtime .
+
+      - name: 生产镜像自检：能导入应用（不加载模型/不连库）
+        # 只验证「依赖齐全 + 代码可导入」。模型与索引走卷挂载，这里没有，也不该有。
+        run: |
+          docker run --rm p1-rag:runtime python -c "
+          import src.api.app as m
+          print('app 导入成功；路由数 =', len(m.app.routes))
+          "

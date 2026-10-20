@@ -1,5 +1,8 @@
 # Agentic RAG for Finance — 面向财报研报的智能问答系统
 
+[![CI](https://github.com/iamoylx/agentic-rag-finance/actions/workflows/ci.yml/badge.svg)](https://github.com/iamoylx/agentic-rag-finance/actions/workflows/ci.yml)
+[![Docker](https://github.com/iamoylx/agentic-rag-finance/actions/workflows/docker.yml/badge.svg)](https://github.com/iamoylx/agentic-rag-finance/actions/workflows/docker.yml)
+
 > 从零实现的金融文档 Agentic RAG：**Adaptive / Corrective / Self-RAG 三范式融合的 LangGraph 状态图**（手写 `add_node` / `add_conditional_edges`，非 prebuilt 封装）+ BM25/BGE-M3 混合检索 + CrossEncoder 精排 + 数值一致性幻觉拦截 + FastAPI SSE 流式。
 >
 > 全部指标由真实数据实测得出，见 [METRICS.md](METRICS.md)。
@@ -113,7 +116,7 @@ python scripts/verify_models.py     # 校验模型能加载、dense 维度 1024�
 > 已修（2026-10-20）：以前该脚本末尾的 `✅`/`❌` 在 **GBK 编码的 Windows 控制台**上会抛
 > `UnicodeEncodeError`（功能已跑完，只是最后一行打印失败）。现在状态标记统一为
 > `[OK]`/`[FAIL]`/`[WARN]`，并由 `tests/test_output_encoding.py` 的全仓库 AST 闸门守着；
-> 货币符号用 `￥`(U+FFE5) 而非 `¥`(U+00A5)——后者不在 GBK 里。
+> 货币符号用 `¥`(U+FFE5) 而非 `¥`(U+00A5)——后者不在 GBK 里。
 
 ### 2) 配 LLM（`.env`）
 
@@ -172,7 +175,7 @@ curl -N -X POST http://127.0.0.1:8300/api/chat \
 | 模型加载失败 / 路径不存在 | 第 1 步没下完；先跑 `python scripts/verify_models.py` |
 | 建索引很慢（CPU） | 正常，10014 个分块在 CPU 上要几分钟；有 GPU 会快一个数量级 |
 | 429 / 限流 | 免费额度常见；换 DeepSeek 或降低并发 |
-| 脚本输出乱码或 `UnicodeEncodeError: 'gbk' codec can't encode` | Windows 控制台是 cp936(GBK)——能编中文，编不了 emoji 和 `¥`(U+00A5)。代码里统一用 `[OK]`/`[WARN]`/`[FAIL]` 和 `￥`(U+FFE5)，`tests/test_output_encoding.py` 的 AST 闸门守着；若仍撞见，说明某处漏了，跑一下该测试会点名到 file:line |
+| 脚本输出乱码或 `UnicodeEncodeError: 'gbk' codec can't encode` | Windows 控制台是 cp936(GBK)——能编中文，编不了 emoji 和 `¥`(U+00A5)。代码里统一用 `[OK]`/`[WARN]`/`[FAIL]` 和 `¥`(U+FFE5)，`tests/test_output_encoding.py` 的 AST 闸门守着；若仍撞见，说明某处漏了，跑一下该测试会点名到 file:line |
 
 前端除对话/轨迹/引用外还接了：**「＋ 上传PDF」入库**（`/api/ingest/upload`，实时显示分块进度）、**刷新后历史对话自动恢复**（localStorage 会话 ID + `/api/history`）、**存储层运维条**（`/api/store/stats`：MySQL/SQLite、轮次、会话数、最近写入）。
 
@@ -217,6 +220,39 @@ python -m pytest -q            # 64 passed（testpaths=tests，约 18s；一次�
 python evals/bench_gate_overhead.py        # 闸门性能实测（零 LLM 消耗）
 python evals/run_gate_realllm_check.py     # 真实 LLM 下的闸门验证（真模型+真SSE，约 ¥0.03）
 python evals/run_e2e_eval.py --limit 3 --cap 0.5   # 端到端试点（约 ¥0.012，产物写 e2e_pilot.json）
+```
+
+### 持续集成（GitHub Actions）
+
+两个 workflow，**节奏不同所以分开**：
+
+| workflow | 跑什么 | 触发 | 耗时 |
+|---|---|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | `ruff`（真实缺陷类规则）+ `pytest`（默认口径） | push / PR | ~3 分钟 |
+| [`docker.yml`](.github/workflows/docker.yml) | `docker build --target test` + 容器内 pytest + 生产镜像导入自检 | 手动 / 改镜像相关文件 / 每周兜底 | ~10 分钟 |
+
+**CI 里怎么装 torch（这里有个容易踩的坑）**：`requirements.txt` 故意不声明 torch
+（本地 venv 用 `--system-site-packages` 继承系统的 cu126），但 CI 没有「系统继承」。
+装 CPU 版必须用 `--index-url`（**单索引**，替换默认索引）：
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements-ci.txt          # 见该文件：补 transformers/accelerate/ruff
+```
+
+不要用 `--extra-index-url`：两个索引并存时 pip 按版本号挑，PyPI 的 linux torch 带 CUDA，
+是否真拿到 CPU 版**不确定**（镜像会凭空胖 2-3 GB）。这条对 Dockerfile 同样适用。
+
+本地想完全复刻 CI（验证依赖声明是否完整）：
+
+```bash
+python -m venv /tmp/ci && /tmp/ci/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+/tmp/ci/bin/pip install -r requirements-ci.txt && /tmp/ci/bin/python -m pytest -q
+```
+
+> 为什么要用**新 venv** 复刻：本地 venv 继承了系统 torch/transformers，
+> 会掩盖 `requirements.txt` 漏声明的依赖。CI 第一次跑就是这样发现漏了 `httpx` 的
+> （`tests/test_sse_gate.py` 用 starlette TestClient，而 fastapi 不会自动装 httpx）。
 python evals/run_e2e_eval.py               # 端到端全量 26 条（约 ¥0.08，3 分钟）
 ```
 

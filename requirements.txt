@@ -14,6 +14,9 @@ sse-starlette>=2.0.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
 python-multipart>=0.0.9
+# httpx：tests/test_sse_gate.py 用 starlette TestClient 打 SSE 流，TestClient 依赖它；
+# fastapi 并不自动装 httpx（CI 在干净环境里装完依赖直接红过），所以显式声明。
+httpx>=0.27.0
 python-dotenv>=1.0.0
 pydantic-settings>=2.0.0
 tenacity>=8.0.0

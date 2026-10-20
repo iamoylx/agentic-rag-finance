@@ -664,3 +664,103 @@ LLM 调用 26 次 | 输入 87853 tok（缓存命中 0 = 0.0%） | 输出 12043 t
 它们在 GitHub 上按 UTF-8 渲染，emoji 是加分项，不是风险。
 
 回归：`pytest tests/` → **64 passed**（59 + 新增 5），17.97s，仍全离线。
+
+## T1 · CI 落地（2026-10-20）
+
+### 前置侦察：干净克隆先跑一遍
+
+CI 的本质是「在干净环境里跑一遍」。动手写 workflow 之前先本地模拟：
+`git clone` 到临时目录（无 `.env` / `models/` / `data/`）后跑测试。
+
+| 仓库 | 干净克隆 | 说明 |
+|---|---|---|
+| P1（本仓库） | **64 passed** | 测试不碰库、不碰模型权重，CI 无需准备任何外部资源 |
+| P2 | 137 passed / **10 failed** / 2 skipped | 碰库的用例全红（另案处理，见 P2 的 METRICS） |
+
+P1 能过是因为 `tests/` 里的用例只覆盖 `src/safety`、`src/api`（store）、`src/api/app`
+的纯逻辑路径；`src/api/app.py` 虽然 import 链会拉入 torch/transformers/chromadb，
+但**都只是 import，不做计算、不读权重**。这正是「64 条全离线上测」能成立的原因。
+
+### 问题 1 的答案：CI 里怎么装 torch
+
+`requirements.txt` **故意不声明** torch（本地 venv 用 `--system-site-packages` 继承系统的
+cu126），CI runner 上没有「系统继承」，所以必须显式装。三个候选方案的实际代价：
+
+| 方案 | 问题 |
+|---|---|
+| 直接 `pip install torch` | 拿到 PyPI 的 CUDA 构建，带 nvidia-* 依赖，下载数 GB——CI 白等 |
+| `--extra-index-url .../cpu` + `torch>=2.4` | **不确定**：两个索引并存时 pip 按版本号挑，PyPI 的 linux torch 往往同时命中 |
+| **`--index-url .../cpu`（单索引）** | 确定拿 CPU 版。`--index-url` 会替换默认索引，所以**只能单独一条命令**，不能写进 requirements 文件（会污染同文件所有包） |
+
+采用第三种，落地成：
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements-ci.txt
+```
+
+新增 `requirements-ci.txt` = `-r requirements.txt` + `transformers` + `accelerate` + `ruff`。
+**两份文件并存是刻意的**（文件头写了原因），不是重复声明。
+
+### 顺带发现：`requirements.txt` 漏了 `httpx`
+
+用 AST 扫 `src/` `tests/` 的顶层第三方 import，与 requirements 对差集：
+
+```
+requirements.txt 未声明的: ['httpx', 'langchain_core']
+```
+
+`langchain_core` 是 `langchain` 的传递依赖（无需声明）；但 **`httpx` 不是**——
+`tests/test_sse_gate.py` 用 starlette `TestClient` 打 SSE 流，而 fastapi **不会**自动装 httpx。
+本地 venv 里 httpx 恰好被别的包带进来了，所以一直没暴露。已补进 `requirements.txt`。
+
+> 这一类缺口只有「新 venv + 只装 requirements」才能发现，任何在**已有 venv** 里跑的
+> 验证都会掩盖它。这是本轮最重要的方法论：**验证依赖声明必须用干净环境。**
+
+### 顺带发现：Dockerfile 构建必炸
+
+`requirements-docker.txt` 里有 `-r requirements.txt`，但 Dockerfile 只
+`COPY requirements-docker.txt .` —— pip 会直接报
+`Could not open requirements file: requirements.txt`。
+即「有 Dockerfile 但从未真正构建过」这件事，落到代码上就是一行 COPY 之差。
+
+同时把多阶段改成三段式（`base` → `test` → `runtime`），并**把生产放在最后**
+（`docker build .` / `docker compose` 不带 `--target` 时构建最后一个阶段；
+若把 test 放最后，生产镜像会变成测试镜像）：
+
+| target | 用途 |
+|---|---|
+| `base` | 只装依赖（最大层，缓存命中率最高） |
+| `test` | + `pytest.ini` + `tests/`，CI 在容器内跑 pytest |
+| `runtime`（默认） | + `src/` `scripts/run_api.py` `web/`，生产用 |
+
+torch 在 Dockerfile 里同样改成 `--index-url` 单索引装 CPU 版（原来 `--extra-index-url`
+写法结果不确定，镜像可能凭空胖 2-3 GB）。
+
+### 两个 workflow，分开的理由
+
+| workflow | 内容 | 触发 | 耗时 |
+|---|---|---|---|
+| `ci.yml` | ruff + pytest | push / PR | ~3 分钟 |
+| `docker.yml` | `docker build --target test` → 容器内 pytest → 生产镜像导入自检 | 手动 / 改镜像相关文件 / 每周兜底 | ~10 分钟 |
+
+分开是因为**节奏不同**（PR 要 2 分钟内给结论），而且 docker 路径**本机无法本地验证**
+（开发环境是 Windows + 没装 Docker）——放同一个 workflow 会让 `ci.yml` 的徽章被它拖红。
+
+**诚实边界**：`docker.yml` 从未真正运行过（本机无 Docker）。
+它是一次「写好交给 CI 收敛」的改动，首次跑可能需要修一两轮。这一点写进了 workflow 注释。
+
+### lint 门槛口径
+
+`ruff check --select E9,F63,F7,F82,F401,F811,F841,F821,F822,F823`（真实缺陷类，
+不打格式风格）。本仓库原 4 处，修完：
+
+- `evals/bench_gate_overhead.py` / `run_retrieval_eval.py`：unused import（自动修）
+- `tests/test_output_encoding.py`：unused `pytest`（自动修）
+- `tests/test_gate_property.py`：`answer` 赋值未用 → **顺手改成真用上**
+  把 5 条串行 `assert` 收成一次 `parts == [...]` 比较（串行 assert 会互相遮蔽，
+  列表比较一次给出全部差异），并补一条「各段拼回去必须等于原文」的无损断言。
+
+ruff 默认规则集在本仓库会报 84 条（BLE001 blind-except 等），属**风格债**，不在本轮范围。
+
+回归：`pytest -q` → **64 passed**；`ruff --select <上述>` → All checks passed。

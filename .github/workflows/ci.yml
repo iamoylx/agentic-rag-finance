@@ -1,0 +1,64 @@
+name: CI
+
+# T1（2026-10-20）：最便宜的「工程化」证据——README 挂绿徽章 = 项目是活的。
+#
+# 两个闸门，顺序按「失败最快、信息量最大」排：
+#   ① ruff   —— 真实缺陷类规则（未定义名 / 未用导入 / 语法错），几秒出结果
+#   ② pytest —— 默认口径，零外部依赖（不联网、不读凭据、不需要 4.3GB 模型）
+#
+# 为什么不跑 GPU / 不跑评测集：
+#   64 条用例全是离线单测，torch 只被 import（不参与计算），CPU 版足够。
+#   评测集要真实 LLM（烧 token、需 key），属于手动执行，见 METRICS.md。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支连推多次时，取消中间那次——省 runner 时间，也让徽章更快收敛
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest + ruff (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # 只测 3.12：requirements 与 Dockerfile 都锁 3.12，多版本矩阵会引入
+        # 与本项目无关的兼容噪音（chromadb / pymupdf 的 wheel 可用性）
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-ci.txt
+
+      # torch 必须先单独装：它要 --index-url 锁定 CPU 索引（单索引才确定拿到 CPU 版）。
+      # 这一步是「question 1」的答案——requirements.txt 不声明 torch 是刻意的
+      # （本地 venv 继承系统 torch cu126），CI 没有系统继承，所以要显式补。
+      - name: 安装 CPU 版 torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: 安装依赖（含 transformers / ruff）
+        run: pip install -r requirements-ci.txt
+
+      - name: Lint（真实缺陷类规则，不打架格式风格）
+        run: ruff check --select E9,F63,F7,F82,F401,F811,F841,F821,F822,F823 .
+
+      - name: 测试（默认口径，零外部依赖）
+        run: python -m pytest -q

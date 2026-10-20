@@ -21,7 +21,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.api.engine import engine
-from src.retrieval.reranker import BGEReranker
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLD = ROOT / "evals" / "goldset.json"

@@ -1,0 +1,27 @@
+# CI 专用依赖（GitHub Actions 用，2026-10-20）
+#
+# 为什么要单独一份，而不是直接装 requirements.txt：
+#   requirements.txt 基于「系统 Python venv --system-site-packages，torch cu126 由系统继承」
+#   这个前提（见该文件首行注释）。CI runner 上没有「系统继承」，所以 torch / transformers
+#   必须显式装。这是**两份文件并存的原因，不是遗漏**。
+#
+# torch 为什么不写在这里：
+#   装 CPU 版必须用 `--index-url https://download.pytorch.org/whl/cpu` **替换**默认索引，
+#   否则 pip 会从 PyPI 拿到带 CUDA 的构建（体积大数倍，CI 白等几分钟）。
+#   但 `--index-url` 写在 requirements 文件里会**污染同一文件里所有包**的索引
+#   （PyPI 上的 fastapi/chromadb 就找不到了）。所以 torch 单独一条命令装：
+#
+#       pip install torch --index-url https://download.pytorch.org/whl/cpu
+#       pip install -r requirements-ci.txt
+#
+#   别照抄 requirements-docker.txt 的 `--extra-index-url` 写法：两个索引并存时 pip
+#   按「最高版本」挑，PyPI 的 torch 往往同时命中，是否真拿到 CPU 版是不确定的。
+
+-r requirements.txt
+
+# requirements.txt 假设由系统继承、CI 侧必须显式补的两个（src/retrieval/embeddings.py 要）
+transformers>=4.51.0
+accelerate>=1.0.0
+
+# lint（CI 的第二个闸门）
+ruff>=0.14

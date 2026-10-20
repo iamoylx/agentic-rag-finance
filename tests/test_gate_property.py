@@ -355,9 +355,11 @@ def test_boundary_invariant_actually_catches_the_bare_decimal_bug():
     """
     answer = "基本每股收益68.64元"
     gate = NumericHoldBackGate(CORPUS)
-    assert gate.feed("基本每股收益") == "基本每股收益"
-    assert gate.feed("68") == ""
-    assert gate.feed(".") == ""       # ★旧实现此处会返回 "68."
-    assert gate.feed("64") == ""
-    assert gate.feed("元") == "68.64元"
+    # 逐段喂入后把各段结果收集成列表再比较：串行 assert 会互相遮蔽
+    # （第一条红了下文就不跑），列表比较一次给出全部差异。
+    parts = [gate.feed("基本每股收益"), gate.feed("68"), gate.feed("."),
+             gate.feed("64"), gate.feed("元")]
+    assert parts == ["基本每股收益", "", "", "", "68.64元"]   # ★旧实现在第三段会返回 "68."
+    # 「无损」的定义：各段放行内容按原序拼回去，必须与原文逐字相同
+    assert "".join(parts) == answer
     assert gate.violated is False

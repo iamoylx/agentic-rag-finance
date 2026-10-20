@@ -1,10 +1,17 @@
-# 容器镜像专用依赖：与 requirements.txt 的区别是这里要显式带上 torch/transformers
-# （requirements.txt 假设「系统 venv 已继承 torch cu126」，容器里没有系统环境，必须自含）
-# torch 用 CPU 版（--extra-index-url 见 Dockerfile）：推理足够，镜像体积可控
-
---extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.4.0
-transformers>=4.51.0
-accelerate>=1.0.0
+# 容器镜像专用依赖（与 requirements.txt 的差别：容器里没有「系统继承」，必须自含）
+#
+# torch 为什么不写在这里：
+#   装 CPU 版必须用 `--index-url https://download.pytorch.org/whl/cpu` **替换**默认索引，
+#   否则 pip 会从 PyPI 拿到 CUDA 构建（镜像凭空多 2-3 GB，而容器里 `EMBED_DEVICE=cpu`
+#   根本用不到 GPU 版）。但 `--index-url` 写进 requirements 文件会污染**同文件所有包**的
+#   索引（PyPI 上的 fastapi / chromadb 就找不到了）。
+#   → torch 单独一条命令装，见 Dockerfile。
+#
+#   原先这里写的是 `--extra-index-url` + `torch>=2.4.0`：两个索引并存时 pip 按「最高版本」
+#   挑，PyPI 的 torch 往往同时命中，是否真拿到 CPU 版**是不确定的**——构建结果不可复现。
 
 -r requirements.txt
+
+# requirements.txt 假设由系统继承、容器里必须显式补的两个（src/retrieval/embeddings.py 要）
+transformers>=4.51.0
+accelerate>=1.0.0
