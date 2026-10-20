@@ -242,7 +242,7 @@ python evals/run_trap_eval.py        # 诱导幻觉陷阱拒绝率 → evals/tra
 ## 测试
 
 ```bash
-python -m pytest -q            # 64 passed（testpaths=tests，约 18s；一次性的模型导入占 ~19s）
+python -m pytest -q            # 71 passed（testpaths=tests，约 17s；一次性的模型导入占 ~10-19s）
 python evals/bench_gate_overhead.py        # 闸门性能实测（零 LLM 消耗）
 python evals/run_gate_realllm_check.py     # 真实 LLM 下的闸门验证（真模型+真SSE，约 ¥0.03）
 python evals/run_e2e_eval.py --limit 3 --cap 0.5   # 端到端试点（约 ¥0.012，产物写 e2e_pilot.json）
@@ -299,9 +299,11 @@ python -m venv /tmp/ci && /tmp/ci/bin/pip install torch --index-url https://down
 |---|---|---|
 | `tests/test_gate_property.py` | 39 | **性质测试**：不变式 I1–I4 + 生成的各种切法（穷举短答案 / 采样长答案） |
 | `tests/test_number_gate.py` | 14 | 闸门与数字规则的单元行为（token 边界、全角逗号、子串语义护栏） |
+| `tests/test_output_encoding.py` | 6 | **控制台编码闸门**：AST 扫描 print/raise/logging/exit 节点，禁 emoji 与 `¥`(U+00A5)——cp936 编不了，`PYTHONIOENCODING=gbk` 下会崩 |
+| `tests/test_retrieval.py` | 6 | 检索层：`RERANK_ENABLED` 两分支**同型返回**（`[(Document, score)]`）、增量重建只编码缺失向量、`search()` 返回形状契约 |
 | `tests/test_sse_gate.py` | 5 | SSE 协议层：假 stream 喂进 `_chat_gen`，验翻译逻辑 |
-| `tests/test_output_encoding.py` | 5 | **控制台编码闸门**：AST 扫描 print/raise/logging/exit 节点，禁 emoji 与 `¥`(U+00A5)——cp936 编不了，`PYTHONIOENCODING=gbk` 下会崩 |
 | `tests/test_store.py` | 1 | 存储层 SQLite 回退路径 |
+| **合计** | **71** | 全离线：不联网、不读凭据、不需要模型权重 |
 
 **断言不是写完就算数**——每条都做了**变异验证**（把被测代码按「只改一件事」的方式破坏，
 看哪条断言会响），实测矩阵见 `tests/test_gate_property.py` 模块文档。要点：
