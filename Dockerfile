@@ -34,7 +34,15 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 RUN pip install --no-cache-dir -r requirements-docker.txt
 
 # ---------- 阶段 2：CI 测试（不进生产镜像）----------
+# 必须同时拷 src/ **和** web/，只拷 tests/ 会在收集阶段就炸：
+#   - 缺 src/  → `ModuleNotFoundError: No module named 'src'`（4 个用例文件全部 ERROR）
+#   - 缺 web/  → src/api/app.py 在导入期执行 `StaticFiles(directory=PROJECT_ROOT/"web")`，
+#                目录不存在时 Starlette 直接抛 RuntimeError
+# 这个坑在第一条 GitHub Actions 里真实红过一次（镜像能建、容器内 pytest 挂）。
+# 顺序上代码在前、tests 在后：tests 改动最频繁，放最后一层能让上面几层缓存继续命中。
 FROM base AS test
+COPY src/ ./src/
+COPY web/ ./web/
 COPY pytest.ini ./
 COPY tests/ ./tests/
 CMD ["python", "-m", "pytest", "-q"]
