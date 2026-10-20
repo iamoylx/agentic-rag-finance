@@ -173,7 +173,7 @@ async def test_all_fail():
     print(f"  cache_after = {cached}")
     assert cached is None, f"缓存不该有写入，但有: {cached}"
 
-    print("  ✅ 通过\n")
+    print("  [OK] 通过\n")
 
 
 async def test_pass():
@@ -189,7 +189,7 @@ async def test_pass():
     assert len(resets) == 0, f"一次通过不该有 reset，实际 {len(resets)}"
     assert "1,098,765,432.10" in done_events[0]["answer"]
 
-    print("  ✅ 通过\n")
+    print("  [OK] 通过\n")
 
 
 if __name__ == "__main__":

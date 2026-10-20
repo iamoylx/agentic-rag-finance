@@ -65,7 +65,7 @@ def main() -> int:
             all_ok = False
 
     print(SEP)
-    print(f"混合检索链路: {'✅ 四条通路全部有输出' if all_ok else '❌ 有空结果'}")
+    print(f"混合检索链路: {'[OK] 四条通路全部有输出' if all_ok else '[FAIL] 有空结果'}")
     print(SEP)
     return 0 if all_ok else 1
 

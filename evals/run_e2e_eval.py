@@ -66,7 +66,7 @@ def main() -> None:
 
     tracker = CostTracker(cap_cny=args.cap)
     print(f"模式：{'试点' if args.limit else '正式'}  n={len(items)}  "
-          f"成本上限={'¥%.2f' % args.cap if args.cap else '未设'}")
+          f"成本上限={'￥%.2f' % args.cap if args.cap else '未设'}")
     print(f"提供方：{engine.__class__.__name__} / 产物 → {out_path.relative_to(ROOT)}\n")
 
     results, passed, t0, aborted = [], 0, time.time(), False
@@ -86,7 +86,7 @@ def main() -> None:
         passed += ok
         results.append({"id": it["id"], "q": it["question"], "ok": ok, "answer": ans[:150]})
         print(f"[{'PASS' if ok else 'FAIL'}] {it['id']}  {ans[:70]}"
-              f"  ({time.time()-t1:.0f}s, +¥{tracker.cost_cny-before:.4f})")
+              f"  ({time.time()-t1:.0f}s, +￥{tracker.cost_cny-before:.4f})")
 
     n_done = len(results)
     acc = passed / n_done if n_done else 0.0
@@ -95,8 +95,8 @@ def main() -> None:
     print(f"总耗时 {time.time()-t0:.0f}s")
     print(tracker.report())
     if n_done:
-        print(f"单条均成本 ¥{tracker.cost_cny/n_done:.4f}"
-              f"  → 按此推算 26 条约 ¥{tracker.cost_cny/n_done*26:.2f}")
+        print(f"单条均成本 ￥{tracker.cost_cny/n_done:.4f}"
+              f"  → 按此推算 26 条约 ￥{tracker.cost_cny/n_done*26:.2f}")
 
     out_path.write_text(
         json.dumps({"n": n_done, "passed": passed, "accuracy": acc,

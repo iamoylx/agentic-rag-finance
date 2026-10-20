@@ -51,7 +51,7 @@ def main() -> int:
         try:
             s = answer(graph, q, thread_id=f"test-{i}")
         except Exception as e:
-            print(f"[{tag}] ❌ 异常: {type(e).__name__}: {e}")
+            print(f"[{tag}] [FAIL] 异常: {type(e).__name__}: {e}")
             ok_all = False
             continue
         dt = time.time() - t0

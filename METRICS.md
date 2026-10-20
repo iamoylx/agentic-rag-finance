@@ -408,7 +408,7 @@ I3 是对外承诺的规格护栏，**不能替代该 bug 的回归测试**。
 | `tests/test_number_gate.py` | 14 | 闸门与数字规则单元行为 |
 | `tests/test_sse_gate.py` | 5 | SSE 协议层翻译逻辑 |
 | `tests/test_store.py` | 1 | 存储层 SQLite 回退路径 |
-| **合计** | **59 passed** | 约 31s，其中一次性的模型导入占 ~19s |
+| **合计** | **64 passed** | 约 18s（模型已缓存），其中一次性的模型导入占大头 |
 
 ### ⑥ 本次未完成（诚实清单）
 
@@ -581,3 +581,86 @@ env -u PYTHONPATH python evals/run_gate_realllm_check.py --repeat 3  # 真实 LL
 按旧编码落地」的风险。彻底稳妥的做法是用 `TextIOWrapper` 包 `sys.stdout.buffer`。
 本轮 `_setup_stdio()` 是 `main()` 第一句、之前没有任何输出，实际不受影响；
 但**如果以后要在更晚的位置调用它，必须先做上面那个改造**。已记为已知 gap。
+
+## 全仓库清扫 + AST 编码闸门（2026-10-20 第二轮）
+
+上一节只修了 `verify_models.py` 一处。用同一条规则做全仓库扫描，发现**输出路径上还有
+32 处**同类字符，分布在 10 个文件——包括面试官克隆后最先会跑的验收脚本：
+
+| 文件 | 字符 | 崩在哪 |
+|---|---|---|
+| `scripts/smoke_test.py` | `✅` `❌` `⚠️` | 冒烟结论行（成功路径） |
+| `scripts/test_hybrid.py` / `test_regen_reset.py` / `test_sse_reset.py` / `test_graph.py` | `✅` `❌` | 断言结论行 |
+| `evals/run_e2e_eval.py` | `¥` | 成本汇总 |
+| `evals/run_gate_realllm_check.py` | `✅` `¥` `↳` | 闸门判定行 |
+| `evals/run_weight_sweep.py` | `⚠️` `✅` `❌` `⇒` `−` | **基线不符时的第一句警告** |
+| `src/core/cost.py` | `¥` | `BudgetExceeded` + `report()` |
+
+**`¥` 是最反直觉的一个**：它看起来像中文标点、肯定在 GBK 里，实际不在。
+GBK 里的人民币符号是 `￥`（U+FFE5，编码 `a3a4`），`¥`（U+00A5）编不了。
+同理 `⇒`(U+21D2)、`↳`(U+21B3)、`−`(U+2212) 都编不了，但 `→`(U+2192)、`—`(U+2014)、
+`·`(U+00B7)、`★`(U+2605) **可以**——所以替换要逐个验，不能凭感觉。
+
+### 越界的教训（本轮最有价值的一条）
+
+第一次清扫我用的是**整文件字符串替换**，结果改到了三处**必须保留** emoji 的地方：
+
+| 位置 | 内容 | 为什么不能改 |
+|---|---|---|
+| `src/graph/nodes.py` | 喂给 LLM 的**重生成提示**（`hint = f"⚠️ 上次回答中的数字…"`） | 改它 = **改模型输入** → METRICS 里的指标失去可比性 |
+| `src/retrieval/embeddings.py` | 用户可见的降级提示 | 产品文案 |
+| `final_answer="⚠️ 检测到回答中的数值无法在原文中核实…"` | 流式数值闸门的**拦截文案** | 产品文案，前端直接展示 |
+
+**「编码修复」和「行为变更」的边界就在这里**：同一个字符，在 `print()` 里是 IO 问题，
+在 prompt 里是行为问题。用 grep/正则扫文件根本分不开这两者。
+
+所以第二次改成 **AST 定位、只改 `Call`/`Raise` 节点所在行**：命中从 32 处降到 25 行，
+而上面三处一个字都没动（已用 `git diff` 逐项核对）。**先用 AST 定性，再动手**。
+
+### 闸门：`tests/test_output_encoding.py`（5 条，0.17s，全离线）
+
+| 用例 | 钉住什么 |
+|---|---|
+| `test_output_paths_are_console_encodable` | 全仓库 `print`/`sys.exit`/`logging.*`/`raise` 的输出字符串必须 GBK 可编码 |
+| `test_product_and_prompt_strings_may_keep_emoji` | **闸门的边界**：产品文案与 prompt 里的 emoji 不报（防止下次又越界） |
+| `test_scanner_ignores_comments_and_docstrings` | 同样的文本，进注释不红、进 `print` 才红——两个方向都断言 |
+| `test_scanner_catches_raise_messages_too` | `raise X("✅")` 也要抓（平时不出现，出事时才现身） |
+| `test_cost_report_is_console_encodable` | 运行时求值结果，补静态闸门看不见的格式化函数 |
+
+### 静态闸门的覆盖盲区（实测出来的）
+
+`CostTracker.report()` **返回**字符串、由调用方去打印，不是 `print` 调用，
+所以静态扫描看不见它里面的 `¥`。第一次跑闸门时主用例全绿，是
+`test_cost_report_is_console_encodable` 红了才发现。
+
+处理方式不是放宽闸门（一放宽就开始误伤 prompt 和产品文案），而是
+**静态闸门负责面，运行时用例负责点**，给每个已知格式化函数配一条用例。
+这个边界写进了闸门的 docstring——不写清楚，下一个人会把闸门当全量保证。
+
+### 变异验证（都精确红在预期用例）
+
+| 变异 | 红在哪 |
+|---|---|
+| `smoke_test.py` 的 `[OK]` 改回 `✅` | `test_output_paths_are_console_encodable`（静态闸门点名 `smoke_test.py:111`） |
+| `cost.py` 的 `￥` 改回 `¥` | `test_cost_report_is_console_encodable`（**运行时**，闸门抓不到） |
+
+两个变异红在**不同用例**上——正好证明「面」和「点」是两套机制，不能互相替代。
+
+### GBK 真实运行证据
+
+`PYTHONIOENCODING=gbk` 下跑一遍，再用 `iconv -f gbk` 解回来，中文完全正确：
+
+```
+LLM 调用 26 次 | 输入 87853 tok（缓存命中 0 = 0.0%） | 输出 12043 tok | 实测成本 ￥0.2400（高峰价）
+模型验证总结果: [OK] 全部通过
+冒烟测试结果: [OK] 全部通过
+平均 ΔMRR（0.5 - 0.7）= +0.0212
+→ CI 跨越 0 → 差异不显著
+```
+
+同一句里的 `¥` 在修复前必崩（`UnicodeEncodeError: 'gbk' codec can't encode character '\xa5'`）。
+
+**范围说明**：闸门只扫 `*.py`。`README.md` / `METRICS.md` 里的 `✅` `⚠` `¥` 全部保留——
+它们在 GitHub 上按 UTF-8 渲染，emoji 是加分项，不是风险。
+
+回归：`pytest tests/` → **64 passed**（59 + 新增 5），17.97s，仍全离线。

@@ -168,11 +168,11 @@ def main() -> None:
         print(f"[{tag}] {kind:<8} {q[:30]}")
         print(f"    帧 {len(frames):>3}  reset {len(res['resets'])}  "
               f"cached={cached}  上屏 {len(screen)} 字 / 权威 {len(final_answer)} 字")
-        print(f"    无损 {'✅' if lossless else '★否'}   "
-              f"零泄漏 {'✅' if not n_leak else f'★{n_leak} 帧'}   "
-              f"边界 {'✅' if not n_bound else f'★{n_bound} 帧'}")
+        print(f"    无损 {'[OK]' if lossless else '★否'}   "
+              f"零泄漏 {'[OK]' if not n_leak else f'★{n_leak} 帧'}   "
+              f"边界 {'[OK]' if not n_bound else f'★{n_bound} 帧'}")
         for idx, tail in res["resets"]:
-            print(f"    ↳ reset@帧{idx}   撤回前屏幕尾部 = {tail!r}")
+            print(f"    → reset@帧{idx}   撤回前屏幕尾部 = {tail!r}")
         for idx, tail, miss in res["leaks"][:2]:
             print(f"    ★ 泄漏@帧{idx} 尾={tail!r} 缺失={miss}")
         if not lossless:
@@ -187,7 +187,7 @@ def main() -> None:
     print(f"汇总：{total_runs} 次请求 | 泄漏帧 {total_leak} | 非法边界帧 {total_bound} "
           f"| reset 总次数 {total_reset} | 无损失败 {len(lossless_fail)}")
     ok = total_leak == 0 and total_bound == 0 and not lossless_fail
-    print("判定：" + ("✅ 真实 LLM 下：无损、零泄漏、边界合法" if ok else "★存在失败项，见上"))
+    print("判定：" + ("[OK] 真实 LLM 下：无损、零泄漏、边界合法" if ok else "★存在失败项，见上"))
     if total_reset == 0:
         print("注意：本轮未触发任何 reset —— 『撤回路径在真实模型下可用』仍未覆盖。")
     else:

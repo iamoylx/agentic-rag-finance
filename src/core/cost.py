@@ -101,7 +101,7 @@ class CostTracker(BaseCallbackHandler):
 
         if self.cap_cny is not None and self.cost_cny > self.cap_cny:
             raise BudgetExceeded(
-                f"累计成本 ¥{self.cost_cny:.4f} 已超过上限 ¥{self.cap_cny:.2f}"
+                f"累计成本 ￥{self.cost_cny:.4f} 已超过上限 ￥{self.cap_cny:.2f}"
                 f"（{self.calls} 次调用 / 输入 {self.input_tokens} / 输出 {self.output_tokens}）")
 
     # ---------- 读取 ----------
@@ -112,7 +112,7 @@ class CostTracker(BaseCallbackHandler):
     def report(self) -> str:
         return (f"LLM 调用 {self.calls} 次 | 输入 {self.input_tokens} tok"
                 f"（缓存命中 {self.cache_hit_tokens} = {self.cache_hit_rate:.1%}）"
-                f" | 输出 {self.output_tokens} tok | 实测成本 ¥{self.cost_cny:.4f}"
+                f" | 输出 {self.output_tokens} tok | 实测成本 ￥{self.cost_cny:.4f}"
                 f"（{'高峰' if is_peak() else '空闲'}价）")
 
     def as_dict(self) -> dict:

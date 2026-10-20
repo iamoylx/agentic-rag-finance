@@ -109,7 +109,7 @@ def main() -> None:
         print(f"  {name:<15} R@5={m['recall5']:.3f} MRR@5={m['mrr5']:.3f} nDCG@5={m['ndcg5']:.3f}"
               f"   [记录 R@5={rec['recall5']:.3f}] {flag}")
         if not ok:
-            print("\n⚠️ 基线与记录不符 → 环境/代码已变，扫描结果不可与 METRICS 混用，已退出。")
+            print("\n[WARN] 基线与记录不符 → 环境/代码已变，扫描结果不可与 METRICS 混用，已退出。")
             sys.exit(1)
     print("  → 4 条通路全部对齐，本次环境可信，开始扫参\n")
 
@@ -179,9 +179,9 @@ def main() -> None:
     ok2 = abs(e_bm25["recall5"] - baseline["bm25_only"]["recall5"]) < TOL
     print("  交叉验证：")
     print(f"    1.0:0.0 无精排 R@5={e_dense['recall5']:.3f} vs dense_only "
-          f"{baseline['dense_only']['recall5']:.3f}  {'✅' if ok1 else '❌'}")
+          f"{baseline['dense_only']['recall5']:.3f}  {'[OK]' if ok1 else '[FAIL]'}")
     print(f"    0.0:1.0 无精排 R@5={e_bm25['recall5']:.3f} vs bm25_only "
-          f"{baseline['bm25_only']['recall5']:.3f}  {'✅' if ok2 else '❌'}")
+          f"{baseline['bm25_only']['recall5']:.3f}  {'[OK]' if ok2 else '[FAIL]'}")
 
     # 选最优：精排 R@5 优先 → MRR@5 次之（业务含义：先保证答案在候选里，再让它靠前）
     def is_better(a: dict, b: dict) -> bool:
@@ -271,7 +271,7 @@ def main() -> None:
             detail.append({"k": k, "identical_candidate_sets": same, "n": len(pre),
                            "metrics_unchanged": unchanged})
             print(f"  {k:>5} | {same}/{len(pre):>3} 题完全相同"
-                  f"{'':<22} | {'否（指标一致）' if unchanged else '是 ⚠️'}")
+                  f"{'':<22} | {'否（指标一致）' if unchanged else '是（指标漂移）'}")
         k_stability_by_cfg[tag] = detail
     k_stability = k_stability_by_cfg["best"]   # 兼容旧字段
     print()
@@ -325,9 +325,9 @@ def main() -> None:
     boot = sorted(sum(diff[random.randrange(n)] for _ in range(n)) / n for _ in range(2000))
     lo, hi = boot[int(0.025 * 2000)], boot[int(0.975 * 2000)]
     crosses = lo <= 0 <= hi
-    print(f"\n  平均 ΔMRR（0.5 − 0.7）= {mean_d:+.4f}")
+    print(f"\n  平均 ΔMRR（0.5 - 0.7）= {mean_d:+.4f}")
     print(f"  配对 bootstrap 95% CI = [{lo:+.4f}, {hi:+.4f}]（2000 次重采样，seed=0）")
-    print(f"  → CI {'跨越 0 ⇒ 差异不显著，不能据此认为 0.5 更优' if crosses else '不跨 0 ⇒ 差异显著'}")
+    print(f"  → CI {'跨越 0 → 差异不显著，不能据此认为 0.5 更优' if crosses else '不跨 0 → 差异显著'}")
     print(f"  等价解读：ΔMRR×n = {mean_d * n:+.2f}，即约 {abs(mean_d) * n / 0.5:.1f} 道题"
           f"从第 1 名掉到第 2 名就能造成这个量级的差异\n")
 

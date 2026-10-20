@@ -49,7 +49,7 @@ def main() -> int:
     print(f"  耗时 {dt:.2f}s | 总块数 {len(blocks)} | 文本块 {n_text} | 表格块 {n_tab}")
 
     if n_tab == 0:
-        print("  ⚠️  表格块为 0！表格链路未生效，检查 find_tables / extract_tables")
+        print("  [WARN]  表格块为 0！表格链路未生效，检查 find_tables / extract_tables")
     # 展示一个表格块的 Markdown（验证表格→Markdown 转换正确）
     for b in blocks:
         if b.block_type == "table":
@@ -60,7 +60,7 @@ def main() -> int:
 
     # 验证页眉页脚是否被清洗
     has_footer = any("— 1 —" in b.text or "— 2 —" in b.text for b in blocks)
-    print(f"\n  页脚清洗: {'❌ 仍残留' if has_footer else '✅ 已清除'}")
+    print(f"\n  页脚清洗: {'[FAIL] 仍残留' if has_footer else '[OK] 已清除'}")
 
     # ---------- Step 2: 分块 ----------
     print(SEP)
@@ -97,7 +97,7 @@ def main() -> int:
         hits = retriever.search(q, top_k=3)
         print(f"\n  查询: {q}")
         if not hits:
-            print("    ❌ 无命中")
+            print("    [FAIL] 无命中")
             all_hit = False
             continue
         for i, (d, s) in enumerate(hits, 1):
@@ -108,7 +108,7 @@ def main() -> int:
     # ---------- 结论 ----------
     print(SEP)
     ok = n_tab > 0 and not has_footer and st.n_chunks > 0 and all_hit
-    print(f"冒烟测试结果: {'✅ 全部通过' if ok else '❌ 存在失败项'}")
+    print(f"冒烟测试结果: {'[OK] 全部通过' if ok else '[FAIL] 存在失败项'}")
     print(SEP)
     return 0 if ok else 1
 

@@ -121,7 +121,7 @@ async def run_test():
 
     assert not errors, f"有 error 事件: {errors}"
 
-    print("\n✅ 全部断言通过")
+    print("\n[OK] 全部断言通过")
 
 
 if __name__ == "__main__":

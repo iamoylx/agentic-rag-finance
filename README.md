@@ -110,9 +110,10 @@ huggingface-cli download BAAI/bge-reranker-v2-m3 \
 python scripts/verify_models.py     # 校验模型能加载、dense 维度 1024、余弦区分度正常
 ```
 
-> ⚠️ 已知问题：该脚本末尾的 ✅/❌ 输出在 **GBK 编码的 Windows 控制台**上会抛
-> `UnicodeEncodeError`（功能已跑完，只是最后一行打印失败）。临时绕过：
-> `chcp 65001` 后重跑，或 `python -X utf8 scripts/verify_models.py`。
+> 已修（2026-10-20）：以前该脚本末尾的 `✅`/`❌` 在 **GBK 编码的 Windows 控制台**上会抛
+> `UnicodeEncodeError`（功能已跑完，只是最后一行打印失败）。现在状态标记统一为
+> `[OK]`/`[FAIL]`/`[WARN]`，并由 `tests/test_output_encoding.py` 的全仓库 AST 闸门守着；
+> 货币符号用 `￥`(U+FFE5) 而非 `¥`(U+00A5)——后者不在 GBK 里。
 
 ### 2) 配 LLM（`.env`）
 
@@ -171,6 +172,7 @@ curl -N -X POST http://127.0.0.1:8300/api/chat \
 | 模型加载失败 / 路径不存在 | 第 1 步没下完；先跑 `python scripts/verify_models.py` |
 | 建索引很慢（CPU） | 正常，10014 个分块在 CPU 上要几分钟；有 GPU 会快一个数量级 |
 | 429 / 限流 | 免费额度常见；换 DeepSeek 或降低并发 |
+| 脚本输出乱码或 `UnicodeEncodeError: 'gbk' codec can't encode` | Windows 控制台是 cp936(GBK)——能编中文，编不了 emoji 和 `¥`(U+00A5)。代码里统一用 `[OK]`/`[WARN]`/`[FAIL]` 和 `￥`(U+FFE5)，`tests/test_output_encoding.py` 的 AST 闸门守着；若仍撞见，说明某处漏了，跑一下该测试会点名到 file:line |
 
 前端除对话/轨迹/引用外还接了：**「＋ 上传PDF」入库**（`/api/ingest/upload`，实时显示分块进度）、**刷新后历史对话自动恢复**（localStorage 会话 ID + `/api/history`）、**存储层运维条**（`/api/store/stats`：MySQL/SQLite、轮次、会话数、最近写入）。
 
@@ -211,7 +213,7 @@ python evals/run_trap_eval.py        # 诱导幻觉陷阱拒绝率 → evals/tra
 ## 测试
 
 ```bash
-python -m pytest -q            # 59 passed（testpaths=tests，约 31s；一次性的模型导入占 ~19s）
+python -m pytest -q            # 64 passed（testpaths=tests，约 18s；一次性的模型导入占 ~19s）
 python evals/bench_gate_overhead.py        # 闸门性能实测（零 LLM 消耗）
 python evals/run_gate_realllm_check.py     # 真实 LLM 下的闸门验证（真模型+真SSE，约 ¥0.03）
 python evals/run_e2e_eval.py --limit 3 --cap 0.5   # 端到端试点（约 ¥0.012，产物写 e2e_pilot.json）
