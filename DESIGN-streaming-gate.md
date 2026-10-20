@@ -108,9 +108,10 @@ A 达成度 0、B 达成度 1 但代价 = 全量延迟、C 达成度 1 且代价
 | `scripts/test_regen_reset.py` | 1 | 真 engine + 假 LLM 走满重生成链路 | — |
 | `tests/test_number_gate.py` | 14 | 闸门与数字规则的单元行为（含 token 边界、全角逗号、子串语义护栏） | 变异验证 |
 | `tests/test_gate_property.py` | **39** | **性质测试**：不变式 I1–I4 + 生成的各种切法（穷举短答案 / 采样长答案） | **变异验证：4 组变异 × 4 条不变式的完整灵敏度矩阵**（见该文件模块 docstring 与 METRICS.md） |
+| `tests/test_output_encoding.py` | 5 | **控制台编码闸门**（与本设计无直接关系，但同属「不静默失败」家族）：AST 扫描 print/raise/logging/exit，禁止写入 cp936 编不了的 emoji 与 `¥`(U+00A5) | 变异验证：改动一处 → 精确点名 file:line |
 | `evals/run_gate_realllm_check.py` | 6 用例（含重复统计） | **真模型 + 真 SSE 的逐帧审计**：无损 / 零泄漏 / 边界合法 / 撤回可用 | 逐帧重建屏幕，泄漏 0 帧；见下面第 3 条 |
 
-合计 **59 passed**（离线单测）+ 数十次真实 LLM 请求。
+合计 **64 passed**（离线单测）+ 数十次真实 LLM 请求。
 
 ### 不变式与「哪条断言真的能抓到缺陷」（本文件最重要的一张表）
 

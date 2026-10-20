@@ -232,9 +232,10 @@ python evals/run_e2e_eval.py               # 端到端全量 26 条（约 ¥0.08
 
 | 文件 | 用例 | 验的是什么 |
 |---|---|---|
-| `tests/test_number_gate.py` | 14 | 闸门与数字规则的单元行为（token 边界、全角逗号、子串语义护栏） |
 | `tests/test_gate_property.py` | 39 | **性质测试**：不变式 I1–I4 + 生成的各种切法（穷举短答案 / 采样长答案） |
+| `tests/test_number_gate.py` | 14 | 闸门与数字规则的单元行为（token 边界、全角逗号、子串语义护栏） |
 | `tests/test_sse_gate.py` | 5 | SSE 协议层：假 stream 喂进 `_chat_gen`，验翻译逻辑 |
+| `tests/test_output_encoding.py` | 5 | **控制台编码闸门**：AST 扫描 print/raise/logging/exit 节点，禁 emoji 与 `¥`(U+00A5)——cp936 编不了，`PYTHONIOENCODING=gbk` 下会崩 |
 | `tests/test_store.py` | 1 | 存储层 SQLite 回退路径 |
 
 **断言不是写完就算数**——每条都做了**变异验证**（把被测代码按「只改一件事」的方式破坏，
