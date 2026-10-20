@@ -116,7 +116,9 @@ class Engine:
 
     def _build(self, docs: list[Document]) -> None:
         """由 docs 全量重建检索器与图。调用方负责持锁。"""
-        self.retriever = HybridRetriever(docs)
+        self.retriever = HybridRetriever(
+            docs, use_rerank=settings.rerank_enabled   # CPU 部署可关（见 config 注释）
+        )
         self.graph = build_rag_graph(self.retriever, checkpointer=self.checkpointer)
         self.corpus_fp = self._compute_corpus_fp()
 

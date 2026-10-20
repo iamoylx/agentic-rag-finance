@@ -71,6 +71,19 @@ class Settings(BaseSettings):
     chunk_overlap: int = 64
     top_k_retrieve: int = 20               # 粗召回数量（送入精排前）
     top_k_final: int = 5                   # 最终进入 Prompt 的块数（对应 Recall@5）
+    # 是否启用 BGE-reranker 精排。默认开（与全部 METRICS 数字同一口径）。
+    #
+    # 为什么要有这个开关：**CPU 部署下精排是单次请求的最大开销**。实测 40 条候选
+    # 精排耗时 17–34s，而编码 query 0.28s、BM25 0.02s、dense 0.01s——也就是说
+    # 不开 GPU 时，一次检索几乎全部时间都在精排上。容器（EMBED_DEVICE=cpu）想做到
+    # 亚秒级响应，只能关掉它。
+    #
+    # 代价是量过的，不是拍脑袋（evals/retrieval_result.json，26 条真实年报评测项）：
+    #   hybrid+rerank : Recall@5 0.9615 / MRR@5 0.6859 / nDCG@5 0.8138
+    #   hybrid(RRF)   : Recall@5 0.8846 / MRR@5 0.7000 / nDCG@5 0.8347
+    # 即关掉精排 Recall@5 掉 7.7 个点，而 MRR/nDCG **反而略好**——精排把「包含答案
+    # 的块」更多地排进前 5（Recall 升），但把个别最相关的块往下压（MRR 降）。
+    rerank_enabled: bool = True
     bm25_k1: float = 1.5
     bm25_b: float = 0.75
     rrf_k: int = 60                        # RRF 融合常数，SIGIR 2009 原论文取 60

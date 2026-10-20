@@ -17,7 +17,7 @@ from src.core.config import settings
 from src.retrieval.bm25 import BM25Retriever
 from src.retrieval.embeddings import BGEM3Embedder
 from src.retrieval.reranker import BGEReranker
-from src.retrieval.vector_store import ChromaVectorStore
+from src.retrieval.vector_store import ChromaVectorStore, doc_id
 
 
 def rrf_fuse(*ranked_lists: list[Document], k: int | None = None,
@@ -57,11 +57,13 @@ class HybridRetriever:
         use_rerank: bool = True,
         embedder: BGEM3Embedder | None = None,
         reranker: BGEReranker | None = None,
+        store: ChromaVectorStore | None = None,
     ):
         """构建索引并就绪。
 
         参数：docs 为分块后的 Document 全集（建 BM25 索引 + 入 Chroma）。
-              已入库时 Chroma 会幂等覆盖，重复构建无副作用。
+              embedder / reranker / store 都是**注入口**：生产用默认值（真模型 +
+              真实持久化目录），测试可传假实现或临时目录，不必加载 4.3 GB 权重。
         """
         self.docs = list(docs)
 
@@ -70,9 +72,18 @@ class HybridRetriever:
 
         # 路 2：dense 向量（Chroma 持久化）
         self.embedder = embedder or BGEM3Embedder.get()
-        self.store = ChromaVectorStore()
-        embeddings = self.embedder.encode_dense([d.page_content for d in self.docs])
-        self.store.upsert(self.docs, embeddings)
+        self.store = store or ChromaVectorStore()
+        # 只编码**还没入库**的块。Chroma 已持久化，重启后绝大多数块都在库里；
+        # 无条件重算在 GPU 上是 ~6s（看不出来），在 CPU 上实测 10014 块要 19 分钟
+        # （可见 evals/bench_cold_start_cpu.py），容器冷启动直接不可用。
+        # 注意：这里逐个 id 核对而不是「指纹一致就跳过」——指纹只证明输入没变，
+        # 证明不了库里的向量真的完整。
+        have = self.store.present_ids(self.docs)
+        todo = [d for d in self.docs if doc_id(d) not in have]
+        if todo:
+            embeddings = self.embedder.encode_dense([d.page_content for d in todo])
+            self.store.upsert(todo, embeddings)
+        self.n_reencoded = len(todo)   # 供日志/评测观察「这次启动真的算了多少」
 
         # 精排（可选：显存紧张或只想测召回时可关）
         self._use_rerank = use_rerank
@@ -97,11 +108,15 @@ class HybridRetriever:
             [d for d, _ in bm25_hits], [d for d, _ in dense_hits],
             weights=[settings.rrf_bm25_weight, settings.rrf_dense_weight],
         )
-        candidates = [d for d, _ in fused[: settings.top_k_retrieve]]
 
         if self._use_rerank and self.reranker is not None:
-            return self.reranker.rerank(query, candidates)[:k_final]
-        return candidates[:k_final]
+            return self.reranker.rerank(query, [d for d, _ in fused[: settings.top_k_retrieve]])[:k_final]
+        # 关掉精排时返回 **RRF 分**，而不是把 Document 裸着返回。
+        # 两条分支必须**同型** [(Document, score)]：src/graph/nodes.py 里是
+        # `docs = [d for d, _ in hits]`，返回裸 Document 会当场
+        # ValueError: too many values to unpack。
+        # 这个不一致在 `rerank_enabled=False` 加进来时立刻暴露了（之前该分支不可达）。
+        return fused[:k_final]
 
     # ---------- 评测钩子（P1-S3 三组对比实验用）----------
 

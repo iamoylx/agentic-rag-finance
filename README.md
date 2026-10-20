@@ -173,19 +173,45 @@ curl -N -X POST http://127.0.0.1:8300/api/chat \
 |---|---|
 | 启动报「未读取到 DEEPSEEK_API_KEY」 | `.env` 没配或 `LLM_PROVIDER` 拼错；报错文案会点名具体变量 |
 | 模型加载失败 / 路径不存在 | 第 1 步没下完；先跑 `python scripts/verify_models.py` |
-| 建索引很慢（CPU） | 正常，10014 个分块在 CPU 上要几分钟；有 GPU 会快一个数量级 |
+| 建索引很慢（CPU） | 正常但要知道量级：**10014 个分块在 CPU 上重编码约 19 分钟**。代码已改为「只编码 Chroma 里缺的块」，所以**只要 `data/chroma/` 还在，重启就是秒级**；删了索引才会重付这 19 分钟。有 GPU 会快一个数量级 |
 | 429 / 限流 | 免费额度常见；换 DeepSeek 或降低并发 |
 | 脚本输出乱码或 `UnicodeEncodeError: 'gbk' codec can't encode` | Windows 控制台是 cp936(GBK)——能编中文，编不了 emoji 和 `¥`(U+00A5)。代码里统一用 `[OK]`/`[WARN]`/`[FAIL]` 和 `¥`(U+FFE5)，`tests/test_output_encoding.py` 的 AST 闸门守着；若仍撞见，说明某处漏了，跑一下该测试会点名到 file:line |
 
 前端除对话/轨迹/引用外还接了：**「＋ 上传PDF」入库**（`/api/ingest/upload`，实时显示分块进度）、**刷新后历史对话自动恢复**（localStorage 会话 ID + `/api/history`）、**存储层运维条**（`/api/store/stats`：MySQL/SQLite、轮次、会话数、最近写入）。
 
-### Docker 一键部署（api + mysql + redis）
+### Docker 部署（api + mysql + redis）
 
 ```bash
 export AGNES_API_KEY=...            # 或 DEEPSEEK_API_KEY / TAVILY_API_KEY
-docker compose up -d                # api:8300 + mysql:8.4 + redis:7
+export RERANK_ENABLED=false         # CPU 部署必看，见下方「容器里的两个数」
+docker compose up -d --wait         # api:8300 + mysql:8.4 + redis:7
 # 对话落 MySQL(rag 库)、高频问答缓存走 Redis；models/ 与 data/ 卷挂载不进镜像
+curl http://127.0.0.1:8300/health
 ```
+
+#### 容器里的两个数（实测，别猜）
+
+| 指标 | 实测值 | 说明 |
+|---|---|---|
+| 冷启动（到 `/health` 可用） | **≈33s** | 其中 **23s 是导入 langgraph/langchain/chromadb/torch**，10s 是加载权重（4.2s）+ 建 BM25（3.8s）+ 还原语料（0.4s） |
+| 单次检索（CPU） | 开精排 **17–34s** / 关精排 **0.27–0.50s** | 精排是 CPU 下的绝对瓶颈（40 条候选），其余加起来不到 0.4s |
+
+> **`RERANK_ENABLED=false` 不是「偷懒开关」，是量过的取舍**（26 条真实年报评测项）：
+>
+> | 通路 | Recall@5 | MRR@5 | nDCG@5 |
+> |---|---|---|---|
+> | 开精排（默认） | **0.9615** | 0.6859 | 0.8138 |
+> | 关精排（RRF） | 0.8846 | **0.7000** | **0.8347** |
+>
+> 关掉后 Recall@5 掉 7.7 个点，但 MRR/nDCG **反而略好**——精排把更多「含答案的块」
+> 排进前 5，代价是个别最相关的块被往下压。有 GPU 就默认全开；纯 CPU 容器想要
+> 亚秒级响应，就用 Recall 换延迟。
+
+> ⚠️ **索引与权重必须走卷挂载**（`./models`、`./data` 已经这么配了）。
+> 这不只是「性能建议」，是**部署硬约束**：`data/chroma/` 里的 9537 条向量一旦不在，
+> 启动时就要把 10014 个分块重新编码一遍，CPU 上实测 **约 19 分钟**。
+> 代码已优化成「只编码缺失的块」（`present_ids` 逐个 id 核对），
+> 首次建库仍要付这 19 分钟——所以**把首次建好的索引留住**，别每次重来。
 
 存储层说明：会话历史经 SQLAlchemy URL 抽象双引擎——`MYSQL_URL` 配了连 MySQL（生产形态，
 `chat_turns` 表），缺省落 SQLite（`data/db/chats.db`，开发零配置），`/api/history` 语义不变；

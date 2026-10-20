@@ -170,6 +170,26 @@ def test_output_paths_are_console_encodable():
     )
 
 
+def test_all_scan_dirs_present():
+    """扫描目录缺一个就**静默缩面**——这种降级必须报错，不能悄悄少扫。
+
+    起因：`_py_files()` 里是 `if not base.exists(): continue`。Docker 的 test
+    阶段若忘了 `COPY evals/`，闸门会照常变绿，只是少扫了几百个文件——
+    于是「零违规」与「没扫」变得不可区分。
+
+    这不是假想：P1 的 `docker.yml` 首次真跑就红在「test 阶段少拷目录」上
+    （缺 `src/` 与 `web/`）。那次是 `ModuleNotFoundError` 叫出来的，
+    但如果缺的恰好是 `evals/`，就没人叫了。
+
+    **断言「检查本身发生了」，而不只是断言「检查通过了」。**
+    """
+    missing = [d for d in SCAN_DIRS if not (ROOT / d).is_dir()]
+    assert not missing, (
+        f"这些扫描目录不存在，编码闸门会静默缩小扫描面：{missing}"
+        f"（根目录：{ROOT}）"
+    )
+
+
 def test_product_and_prompt_strings_may_keep_emoji(tmp_path):
     """**产品文案与 prompt 不在本闸门管辖内**——这是刻意划的边界。
 

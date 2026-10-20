@@ -39,9 +39,17 @@ RUN pip install --no-cache-dir -r requirements-docker.txt
 #   - 缺 web/  → src/api/app.py 在导入期执行 `StaticFiles(directory=PROJECT_ROOT/"web")`，
 #                目录不存在时 Starlette 直接抛 RuntimeError
 # 这个坑在第一条 GitHub Actions 里真实红过一次（镜像能建、容器内 pytest 挂）。
+#
+# 还要拷 scripts/ 与 evals/：`tests/test_output_encoding.py` 的 AST 闸门会扫
+# SCAN_DIRS = (src, scripts, evals, tests) 四个目录，而 `test_all_scan_dirs_present`
+# 明确断言这四个目录都必须在——少一个就报错，不让闸门**静默缩小扫描面**。
+# （这条用例加上之后，立刻反过来抓到了本 Dockerfile 自己：原来只拷了 src/web/tests。）
+#
 # 顺序上代码在前、tests 在后：tests 改动最频繁，放最后一层能让上面几层缓存继续命中。
 FROM base AS test
 COPY src/ ./src/
+COPY scripts/ ./scripts/
+COPY evals/ ./evals/
 COPY web/ ./web/
 COPY pytest.ini ./
 COPY tests/ ./tests/
@@ -52,6 +60,13 @@ FROM base AS runtime
 COPY src/ ./src/
 COPY scripts/run_api.py ./scripts/run_api.py
 COPY web/ ./web/
+
+# 刻意**不**把 evals/ 放进生产镜像（T2 决策，2026-10-20）：
+#   ① 本项目的 evals 全部需要「真索引 + 真 LLM」才能跑，容器里没有卷挂载就跑不了；
+#   ② 它们是**开发期工具**（消融扫描、金标构建），不是运行时资源——
+#      与 P2 不同，P1 的 src/ 在运行期不读 evals/ 下任何文件。
+# 要在容器里跑评测，用 `docker run -v $PWD/evals:/app/evals -v $PWD/data:/app/data ...`
+# 临时挂进去，别让它们常驻镜像。
 
 EXPOSE 8300
 CMD ["python", "scripts/run_api.py"]

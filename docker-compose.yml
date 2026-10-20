@@ -3,7 +3,9 @@
 # 密钥经环境注入（不写进镜像）；models/data 卷挂载，镜像保持轻量
 services:
   api:
-    build: .
+    build:
+      context: .
+      target: runtime       # 显式写出：Dockerfile 最后一个阶段就是 runtime
     ports:
       - "8300:8300"
     environment:
@@ -22,6 +24,26 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    healthcheck:
+      # 没有 healthcheck 时 `docker compose up --wait` 不会等 api（只等有 healthcheck 的），
+      # 于是「一条命令起来」其实返回时服务还没 ready。用 python 而不是 curl：
+      # python:3.12-slim 里没有 curl。
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              ok = urllib.request.urlopen("http://127.0.0.1:8300/health", timeout=3).status == 200
+          except Exception:
+              ok = False
+          sys.exit(0 if ok else 1)
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      # 冷启动实测约 37s（读语料 26s + 建索引 11s，CPU），再留模型加载余量
+      start_period: 120s
     restart: unless-stopped
 
   mysql:

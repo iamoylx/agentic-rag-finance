@@ -21,6 +21,7 @@ on:
     branches: [main]
     paths:
       - Dockerfile
+      - docker-compose.yml
       - requirements.txt
       - requirements-docker.txt
       - src/**
@@ -30,6 +31,7 @@ on:
   pull_request:
     paths:
       - Dockerfile
+      - docker-compose.yml
       - requirements*.txt
   schedule:
     - cron: "0 3 * * 1"      # 每周一 03:00 UTC
@@ -66,3 +68,22 @@ jobs:
           import src.api.app as m
           print('app 导入成功；路由数 =', len(m.app.routes))
           "
+
+      - name: docker-compose.yml 语法与插值校验
+        # 这一步很便宜但专治一类真事故：compose 会**先对整个文件做变量插值、
+        # 再按 profile 过滤服务**，所以某个未启用服务里一个 `${X:?}` 就能让
+        # 整条 `docker compose up`（连带 if: always() 的收尾）全红。
+        # P2 的 compose 首次真跑就是这么挂的，这里先把它挡在门外。
+        run: docker compose config --quiet
+
+      - name: mysql / redis 两个依赖服务能健康起来
+        # api 起不来是**预期的**：它要 ./models 里 4.3 GB 权重，CI 没有也不该有。
+        # 所以只验证不依赖权重的两个 sidecar，顺带证明 compose 的 depends_on
+        # 条件（mysql service_healthy）真的能达成。
+        run: |
+          docker compose up -d --wait --wait-timeout 180 mysql redis
+          docker compose ps
+
+      - name: 收尾
+        if: always()
+        run: docker compose down -v
