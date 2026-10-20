@@ -220,16 +220,27 @@ python -m pytest -q            # 64 passed（testpaths=tests，约 18s；一次�
 python evals/bench_gate_overhead.py        # 闸门性能实测（零 LLM 消耗）
 python evals/run_gate_realllm_check.py     # 真实 LLM 下的闸门验证（真模型+真SSE，约 ¥0.03）
 python evals/run_e2e_eval.py --limit 3 --cap 0.5   # 端到端试点（约 ¥0.012，产物写 e2e_pilot.json）
+python evals/run_e2e_eval.py               # 端到端全量 26 条（约 ¥0.08，3 分钟）
 ```
+
+> 后三条会**真实消耗 LLM 余额**，且需先停 8300 服务（GPU 显存）。
+> 成本可观测：`src/core/cost.py` 挂在 LangChain 回调上逐次记账（含缓存命中分档计价 +
+> 高峰/空闲时段自动判别），`--cap` 超预算时**优雅中止并保留已完成结果**，不会崩在半路。
+>
+> **真实 LLM 实测（2026-10-16，DeepSeek-V4.1-Flash）**：端到端 26 条 **22/26 = 0.846**，
+> 耗时 179s、77 次调用、实测成本 **¥0.0825**。与之前的 Agnes 结果**同分**（0.846 vs 0.846），
+> 速度 **2.3 倍**；更关键的是**失败题几乎不动**——4 道失败题里 3 道完全相同
+> （茅台经营现金流、宁德千元口径、比亚迪营收增速），题干级判定一致率 **24/26 = 0.923**
+> → **瓶颈在检索链路与口径规则，不在生成模型**。详见 METRICS.md。
 
 ### 持续集成（GitHub Actions）
 
 两个 workflow，**节奏不同所以分开**：
 
-| workflow | 跑什么 | 触发 | 耗时 |
-|---|---|---|---|
-| [`ci.yml`](.github/workflows/ci.yml) | `ruff`（真实缺陷类规则）+ `pytest`（默认口径） | push / PR | ~3 分钟 |
-| [`docker.yml`](.github/workflows/docker.yml) | `docker build --target test` + 容器内 pytest + 生产镜像导入自检 | 手动 / 改镜像相关文件 / 每周兜底 | ~10 分钟 |
+| workflow | 跑什么 | 触发 | 耗时 | 状态 |
+|---|---|---|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | `ruff`（真实缺陷类规则）+ `pytest`（默认口径） | push / PR | ~3 分钟 | 绿 |
+| [`docker.yml`](.github/workflows/docker.yml) | `docker build --target test` + 容器内 pytest + 生产镜像导入自检 | 手动 / 改镜像相关文件 / 每周兜底 | ~10 分钟 | 绿 |
 
 **CI 里怎么装 torch（这里有个容易踩的坑）**：`requirements.txt` 故意不声明 torch
 （本地 venv 用 `--system-site-packages` 继承系统的 cu126），但 CI 没有「系统继承」。
@@ -253,18 +264,10 @@ python -m venv /tmp/ci && /tmp/ci/bin/pip install torch --index-url https://down
 > 为什么要用**新 venv** 复刻：本地 venv 继承了系统 torch/transformers，
 > 会掩盖 `requirements.txt` 漏声明的依赖。CI 第一次跑就是这样发现漏了 `httpx` 的
 > （`tests/test_sse_gate.py` 用 starlette TestClient，而 fastapi 不会自动装 httpx）。
-python evals/run_e2e_eval.py               # 端到端全量 26 条（约 ¥0.08，3 分钟）
-```
 
-> 后三条会**真实消耗 LLM 余额**，且需先停 8300 服务（GPU 显存）。
-> 成本可观测：`src/core/cost.py` 挂在 LangChain 回调上逐次记账（含缓存命中分档计价 +
-> 高峰/空闲时段自动判别），`--cap` 超预算时**优雅中止并保留已完成结果**，不会崩在半路。
->
-> **真实 LLM 实测（2026-10-16，DeepSeek-V4.1-Flash）**：端到端 26 条 **22/26 = 0.846**，
-> 耗时 179s、77 次调用、实测成本 **¥0.0825**。与之前的 Agnes 结果**同分**（0.846 vs 0.846），
-> 速度 **2.3 倍**；更关键的是**失败题几乎不动**——4 道失败题里 3 道完全相同
-> （茅台经营现金流、宁德千元口径、比亚迪营收增速），题干级判定一致率 **24/26 = 0.923**
-> → **瓶颈在检索链路与口径规则，不在生成模型**。详见 METRICS.md。
+`docker.yml` 首次真跑红过一轮，原因是 `test` 阶段少拷了 `src/` 与 `web/`
+（镜像能建、容器内 pytest 一起手就 `ModuleNotFoundError`）。这类问题本地永远复现不了——
+本地跑测试时 `src/` 就在 CWD 旁边。详见 METRICS.md「首次真跑」一节。
 
 | 文件 | 用例 | 验的是什么 |
 |---|---|---|

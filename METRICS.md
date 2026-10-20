@@ -747,8 +747,36 @@ torch 在 Dockerfile 里同样改成 `--index-url` 单索引装 CPU 版（原来
 分开是因为**节奏不同**（PR 要 2 分钟内给结论），而且 docker 路径**本机无法本地验证**
 （开发环境是 Windows + 没装 Docker）——放同一个 workflow 会让 `ci.yml` 的徽章被它拖红。
 
-**诚实边界**：`docker.yml` 从未真正运行过（本机无 Docker）。
-它是一次「写好交给 CI 收敛」的改动，首次跑可能需要修一两轮。这一点写进了 workflow 注释。
+**诚实边界**：`docker.yml` 从未在本地跑过（开发机是 Windows + 没装 Docker，
+`docker: command not found`）。它是一次「写好交给 CI 收敛」的改动，
+首次跑**确实红了一轮**，见下节。
+
+### 首次真跑：镜像能建，容器内 pytest 一起手就挂
+
+CI 收敛结果（`03a497f` 首跑 → `132dae9` 修完）：
+
+| workflow | 首跑 | 修完 |
+|---|---|---|
+| `ci.yml` | PASS | PASS |
+| `docker.yml` | **FAIL** @「容器内跑测试」 | PASS |
+
+失败原因不是依赖、不是网络，是 `test` 阶段**少拷了两个目录**：
+
+| 缺失 | 症状 |
+|---|---|
+| `src/` | `ModuleNotFoundError: No module named 'src'`，4 个用例文件 collection ERROR |
+| `web/` | `src/api/app.py:65` 在**导入期**执行 `StaticFiles(directory=PROJECT_ROOT/"web")`，目录不存在时 Starlette 抛 `RuntimeError` |
+
+本地按「只拷 `src/ web/ pytest.ini tests/`」一比一复现，修前后分别是
+`4 errors in 1.46s` 与 **`64 passed, 5 warnings in 32.73s`**。
+
+修完后 `docker.yml` 的完整链路：`--target test` 构建 → `docker run` 容器内
+**64 passed** → 默认 target 构建 runtime → 容器内 `import src.api.app` 打印路由数。
+
+> 教训：**「代码能导入」和「镜像能跑起来」是两个不同层次的契约**。
+> 一条 `COPY` 的差别，在本地永远暴露不了——因为本地跑测试时 `src/` 和 `web/`
+> 就在 CWD 旁边。只有真的把「只把该进镜像的东西塞进一个空目录」才会红。
+> 这也是为什么 `docker.yml` 值得存在：它验证的不是 Docker，是**镜像的完整性**。
 
 ### lint 门槛口径
 
