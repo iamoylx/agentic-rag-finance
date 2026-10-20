@@ -8,6 +8,14 @@
   - Reranker 是 CrossEncoder：把 (query, doc) 拼成一个输入，输出单一相关性分数。
 
 运行：python scripts/verify_models.py
+      python scripts/verify_models.py > verify.log 2>&1   # 重定向到文件也受支持（写 UTF-8）
+
+★ 输出编码（2026-10-20 修）：Windows 控制台默认 cp936(GBK)，**能编码中文、不能编码 emoji**
+  （`UnicodeEncodeError: 'gbk' codec can't encode character '\u2705'`）。原先脚本最后一行打
+  「✅ 全部通过」，于是**验证明明跑完、最后一步却崩在打印上**，退出码变成非零——
+  看起来像模型坏了，其实是 IO 编码问题。修法两条并存：
+    ① 状态标记改 ASCII（`[OK]`/`[FAIL]`/`[WARN]`），中文正文保留（GBK 表示中文没问题）；
+    ② `_setup_stdio()` 兜底：终端只降级 errors，重定向到文件则统一 UTF-8。
 """
 from __future__ import annotations
 
@@ -25,6 +33,37 @@ from src.core.config import settings  # noqa: E402
 
 SEP = "=" * 70
 
+# 状态标记用 ASCII：GBK 控制台编码不了 ✅/❌，而这些恰恰出现在「结论行」上——
+# 一旦崩在这里，人看到的是 traceback，会误判成模型/推理出问题。
+OK, FAIL, WARN = "[OK]", "[FAIL]", "[WARN]"
+
+
+def _setup_stdio() -> None:
+    """把 stdout/stderr 的编码风险一次性处理掉。
+
+    两种情形分开处理，因为正确解不一样：
+      · **终端**：不改编码。cp936 下中文本来就是对的，硬改成 UTF-8 反而会让控制台
+        按 GBK 解读 UTF-8 字节 → 满屏乱码。只把 `errors` 降级，让漏网的不可编码字符
+        变成 `?`，而不是抛 `UnicodeEncodeError` 把整个验证中断。
+      · **重定向到文件/管道**：统一 UTF-8。日志要能跨机器、跨编辑器读，跟随 locale 的
+        cp936 会在别人那边变成乱码。
+
+    `reconfigure` 只有 Python 3.7+ 的 TextIOWrapper 有；pytest 的 capture、`io.StringIO`、
+    被别的库包过的流都没有——用 getattr 探测，没有就跳过（也不该硬改）。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            if stream.isatty():
+                reconfigure(errors="replace")
+            else:
+                reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            # 流已关闭/已被接管：宁可不改编码，也不该因为「日志格式」中断验证
+            continue
+
 
 def _cls_pooling(last_hidden: "torch.Tensor", attention_mask: "torch.Tensor") -> "torch.Tensor":
     """CLS 池化 + L2 归一化。
@@ -41,7 +80,7 @@ def check_embed() -> bool:
     print("验证 1/2  BGE-M3（向量化）")
     path = Path(settings.embed_model_path)
     if not (path / "pytorch_model.bin").exists() and not (path / "model.safetensors").exists():
-        print(f"  ❌ 权重文件缺失: {path}")
+        print(f"  {FAIL} 权重文件缺失: {path}")
         return False
 
     t0 = time.time()
@@ -75,7 +114,7 @@ def check_embed() -> bool:
     print(f"  财报句 vs 财报句 余弦相似度: {sim_12:.4f}")
     print(f"  财报句 vs 天气句 余弦相似度: {sim_13:.4f}")
     ok = dim == 1024 and sim_12 > sim_13
-    print(f"  结论: {'✅ 维度正确且语义区分正常' if ok else '❌ 异常'}")
+    print(f"  结论: {'[OK] 维度正确且语义区分正常' if ok else '[FAIL] 维度异常'}")
     return ok
 
 
@@ -84,7 +123,7 @@ def check_rerank() -> bool:
     print("验证 2/2  BGE-Reranker-v2-m3（精排）")
     path = Path(settings.rerank_model_path)
     if not (path / "model.safetensors").exists() and not (path / "pytorch_model.bin").exists():
-        print(f"  ❌ 权重文件缺失: {path}")
+        print(f"  {FAIL} 权重文件缺失: {path}")
         return False
 
     t0 = time.time()
@@ -117,17 +156,18 @@ def check_rerank() -> bool:
     for c, s in zip(cands, scores):
         print(f"  score={s:8.4f}  {c[:34]}")
     ok = scores[0] > scores[1] > scores[2]
-    print(f"  结论: {'✅ 相关性排序正确' if ok else '❌ 排序异常'}")
+    print(f"  结论: {'[OK] 相关性排序正确' if ok else '[FAIL] 排序异常'}")
     return ok
 
 
 def main() -> int:
+    _setup_stdio()          # 必须在任何 print 之前
     print(f"CUDA 可用: {torch.cuda.is_available()} | "
           f"设备: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
     r1 = check_embed()
     r2 = check_rerank()
     print(SEP)
-    print(f"模型验证总结果: {'✅ 全部通过' if (r1 and r2) else '❌ 有失败项'}")
+    print(f"模型验证总结果: {'[OK] 全部通过' if (r1 and r2) else '[FAIL] 有失败项'}")
     print(SEP)
     return 0 if (r1 and r2) else 1
 

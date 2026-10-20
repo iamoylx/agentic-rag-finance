@@ -539,3 +539,45 @@ env -u PYTHONPATH python evals/run_e2e_eval.py --limit 3 --cap 0.5   # 试点（
 env -u PYTHONPATH python evals/run_gate_realllm_check.py --repeat 3  # 真实 LLM 下的闸门验证（约 ¥0.03）
 ```
 两个脚本都需先停 8300 服务（GPU 显存），且**都真实消耗余额**。
+
+## 脚本卫生：验证跑完了，却崩在打印上（2026-10-20）
+
+**现象**：`scripts/verify_models.py` 在 Windows 控制台上抛
+`UnicodeEncodeError: 'gbk' codec can't encode character '\u2705'`，
+退出码非零。看起来像模型没装好，实际上**两个模型都验证通过了**——
+崩在最后一行打印结论的语句上。
+
+**根因要说清（一个常见误解）**：cp936(GBK) **能**编码中文，**不能**编码 emoji。
+所以这类崩溃不是「中文编码问题」，是「emoji 编码问题」。模型与推理全无问题，
+问题在 stdout 的编码契约。
+
+**修法为什么是两条并存，而不是二选一**：
+
+| 措施 | 解决什么 | 单独用会缺什么 |
+|---|---|---|
+| ① 状态标记改 ASCII（`[OK]`/`[FAIL]`/`[WARN]`），中文正文保留 | 消灭**已知**的不可编码字符 | 以后新加的 emoji 仍会崩 |
+| ② `_setup_stdio()`：终端只降级 `errors="replace"`，重定向则强制 UTF-8 | 兜住**未知**的漏网字符 + 让日志跨机器可读 | 只看 `?` 不知道原来是什么字 |
+
+关键细节：**终端不能硬改 UTF-8**。cp936 控制台按 GBK 解读 UTF-8 字节 → 满屏乱码，
+比崩溃更难查。所以终端分支只降级 `errors`，不动 `encoding`；只有重定向（日志文件
+要跨环境读）才统一 UTF-8。**同一个风险，两种场景的正确解不一样。**
+
+`reconfigure` 只有 3.7+ 的 `TextIOWrapper` 有（pytest capture、`io.StringIO` 都没有），
+必须 `getattr` 探测——否则这个「修 bug 的函数」自己会在测试环境里制造新 bug。
+
+**验证证据（三层，含字节级）**：
+
+| 层 | 证据 |
+|---|---|
+| 分支逻辑 | 假流探针：终端 → `errors='replace'`（不动 encoding）；重定向 → `encoding='utf-8'`；无 `reconfigure` 的流 → 不抛 |
+| 真实运行 | `PYTHONIOENCODING=gbk` + 重定向 → 退出码 0、stderr 空、末行 `[OK] 全部通过`（改前必崩） |
+| **字节级** | 严格 UTF-8 解码**通过**；同一串字节用 GBK 解码**失败**（含 GBK 无法表示的字符）→ 证明文件确实是 UTF-8 写出，不是「恰好能读」 |
+
+> 字节级那条是必要的：文件里全是中文时「UTF-8 能读」不足以证明是 UTF-8 写的——
+> 还得证明它**不是** GBK 写的。两个方向都成立才算钉住。
+
+**未做的（诚实边界）**：
+`reconfigure(encoding=...)` 不会 flush 已有缓冲，理论上存在「改写编码前已输出的字节
+按旧编码落地」的风险。彻底稳妥的做法是用 `TextIOWrapper` 包 `sys.stdout.buffer`。
+本轮 `_setup_stdio()` 是 `main()` 第一句、之前没有任何输出，实际不受影响；
+但**如果以后要在更晚的位置调用它，必须先做上面那个改造**。已记为已知 gap。
