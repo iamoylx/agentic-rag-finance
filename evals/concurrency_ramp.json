@@ -1,0 +1,148 @@
+{
+  "meta": {
+    "path": "ramp",
+    "n": 40,
+    "concurrency": 2,
+    "timeout_s": 180.0,
+    "url": "http://127.0.0.1:8300/api/chat",
+    "started_at": "2026-10-20 16:45:23",
+    "tag": "",
+    "torch": "2.7.1+cu126",
+    "cuda": true,
+    "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU"
+  },
+  "rows": [
+    {
+      "concurrency": 1,
+      "summary": {
+        "n": 40,
+        "n_ok": 40,
+        "n_fail": 0,
+        "qps": 153.315,
+        "wall_s": 0.26,
+        "p50_ms": 6.07,
+        "p95_ms": 7.84,
+        "p99_ms": 15.87,
+        "mean_ms": 6.49,
+        "err_rate": 0.0,
+        "server_elapsed_p50_ms": 2.0,
+        "server_elapsed_p95_ms": 2.0,
+        "delta_p50_ms": 4.72,
+        "delta_p95_ms": 6.07,
+        "outcomes": {
+          "done": 40
+        }
+      }
+    },
+    {
+      "concurrency": 2,
+      "summary": {
+        "n": 40,
+        "n_ok": 40,
+        "n_fail": 0,
+        "qps": 220.485,
+        "wall_s": 0.18,
+        "p50_ms": 7.86,
+        "p95_ms": 15.17,
+        "p99_ms": 26.72,
+        "mean_ms": 8.96,
+        "err_rate": 0.0,
+        "server_elapsed_p50_ms": 2.0,
+        "server_elapsed_p95_ms": 3.0,
+        "delta_p50_ms": 6.17,
+        "delta_p95_ms": 8.27,
+        "outcomes": {
+          "done": 40
+        }
+      }
+    },
+    {
+      "concurrency": 5,
+      "summary": {
+        "n": 40,
+        "n_ok": 40,
+        "n_fail": 0,
+        "qps": 307.8,
+        "wall_s": 0.13,
+        "p50_ms": 14.35,
+        "p95_ms": 22.65,
+        "p99_ms": 30.87,
+        "mean_ms": 15.56,
+        "err_rate": 0.0,
+        "server_elapsed_p50_ms": 2.0,
+        "server_elapsed_p95_ms": 4.0,
+        "delta_p50_ms": 12.56,
+        "delta_p95_ms": 18.65,
+        "outcomes": {
+          "done": 40
+        }
+      }
+    },
+    {
+      "concurrency": 10,
+      "summary": {
+        "n": 40,
+        "n_ok": 40,
+        "n_fail": 0,
+        "qps": 238.518,
+        "wall_s": 0.17,
+        "p50_ms": 28.24,
+        "p95_ms": 80.64,
+        "p99_ms": 86.75,
+        "mean_ms": 39.2,
+        "err_rate": 0.0,
+        "server_elapsed_p50_ms": 2.0,
+        "server_elapsed_p95_ms": 39.0,
+        "delta_p50_ms": 26.26,
+        "delta_p95_ms": 44.64,
+        "outcomes": {
+          "done": 40
+        }
+      }
+    },
+    {
+      "concurrency": 20,
+      "summary": {
+        "n": 40,
+        "n_ok": 40,
+        "n_fail": 0,
+        "qps": 168.844,
+        "wall_s": 0.24,
+        "p50_ms": 57.24,
+        "p95_ms": 184.27,
+        "p99_ms": 189.72,
+        "mean_ms": 107.21,
+        "err_rate": 0.0,
+        "server_elapsed_p50_ms": 6.0,
+        "server_elapsed_p95_ms": 104.0,
+        "delta_p50_ms": 51.25,
+        "delta_p95_ms": 107.63,
+        "outcomes": {
+          "done": 40
+        }
+      }
+    },
+    {
+      "concurrency": 40,
+      "summary": {
+        "n": 40,
+        "n_ok": 40,
+        "n_fail": 0,
+        "qps": 97.983,
+        "wall_s": 0.41,
+        "p50_ms": 358.41,
+        "p95_ms": 395.59,
+        "p99_ms": 400.74,
+        "mean_ms": 359.83,
+        "err_rate": 0.0,
+        "server_elapsed_p50_ms": 88.0,
+        "server_elapsed_p95_ms": 265.0,
+        "delta_p50_ms": 247.58,
+        "delta_p95_ms": 364.38,
+        "outcomes": {
+          "done": 40
+        }
+      }
+    }
+  ]
+}

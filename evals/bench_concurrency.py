@@ -429,8 +429,10 @@ def cmd_cache(a, url: str) -> int:
     四个条件（`app.py:211-212`），而第四条在响应里看不见。
     唯一可靠的验证是**用新 session 再问一次，断言 cached==true**。
     """
-    warm_items = pick_items("warm")
-    items = warm_items[:1] if a.questions == 1 else warm_items[:a.questions]
+    # --warm 决定真的热几条（调试期只热 1 条，省一次 LLM 往返）；
+    # 冷路径固定取 goldset[6:]，与热身前 6 条恒不重叠，所以热 1 条也安全。
+    warm_items = pick_items("warm")[: max(1, a.warm)]
+    items = warm_items[: max(1, a.questions)]
 
     if not a.skip_warm:
         print(f"[热身] {len(warm_items)} 条问题，各跑一次完整图（走 LLM）...")
@@ -523,7 +525,7 @@ def cmd_retrieval(a) -> int:
 
     def one(q: str) -> float:
         t0 = time.perf_counter()
-        hits = retr.search(q, k=5)
+        hits = retr.search(q, top_k=5)
         dt = (time.perf_counter() - t0) * 1000.0
         # 决定性断言：两种模式都必须返回 (Document, score)
         assert isinstance(hits[0], tuple) and len(hits[0]) == 2, \
