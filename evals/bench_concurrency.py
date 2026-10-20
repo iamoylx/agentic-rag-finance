@@ -277,7 +277,31 @@ def pick_items(split: str) -> list[dict]:
 # ============================================================================
 # HTTP 打流
 # ============================================================================
-async def chat_once(client, url: str, item: dict, session_id: str, sem) -> dict:
+def client_kwargs(conc: int, timeout_s: float) -> dict:
+    """构造 AsyncClient 的公共参数。
+
+    ## `trust_env=False` 是必须的，不是洁癖
+
+    本机 shell 里设了 `HTTP_PROXY=http://127.0.0.1:50297`（Clash）且**没有 NO_PROXY**。
+    `httpx` 默认 `trust_env=True`，会把请求交给环境代理——于是「压测本地服务」
+    实际压的是代理：单发 22ms，10 并发 P50 直接飙到 **13.5s**。
+    第一版就是这个读数，差点让人得出「FastAPI 框架层很慢」的错误结论。
+
+    压测本地服务时环境代理永远是噪声，必须显式关掉。
+    这条也被 `tests/test_bench_concurrency.py::test_client_kwargs_disable_env_proxy` 钉住。
+    """
+    import httpx
+
+    return {
+        "timeout": httpx.Timeout(timeout_s, connect=10.0),
+        "limits": httpx.Limits(max_connections=conc + 8,
+                               max_keepalive_connections=conc + 8),
+        "follow_redirects": False,
+        "trust_env": False,
+    }
+
+
+async def chat_once(client, url: str, item: dict, session_id: str) -> dict:
     """发一条 /api/chat，消费 SSE 直到 done / error / EOF。"""
     t0 = time.perf_counter()
     rec = {
@@ -298,34 +322,33 @@ async def chat_once(client, url: str, item: dict, session_id: str, sem) -> dict:
         "error": None,
     }
     parser = P1SseParser()
-    async with sem:
-        try:
-            async with client.stream(
-                "POST", url, json={"question": item["question"], "session_id": session_id}
-            ) as resp:
-                rec["http_status"] = resp.status_code
-                if resp.status_code != 200:
-                    body = (await resp.aread()).decode("utf-8", "replace")[:300]
-                    rec["outcome"] = "http_error"
-                    rec["error"] = f"HTTP {resp.status_code}: {body}"
-                else:
-                    # aiter_raw 而非 aiter_lines：后者会吃掉行尾，对 \r\n 语义模糊
-                    async for chunk in resp.aiter_raw():
-                        parser.feed(chunk)
-                    rec["n_frames"] = parser.n_frames
-                    rec["n_tokens"] = parser.n_tokens
-                    rec["route"] = parser.route
-                    ok, outcome, err = classify_outcome(parser)
-                    rec["ok"] = ok
-                    rec["outcome"] = outcome
-                    rec["error"] = err
-                    if ok:
-                        rec["answer"] = parser.done.get("answer") or ""
-                        rec["cached"] = parser.done.get("cached")
-                        rec["elapsed_ms"] = parser.done.get("elapsed_ms")
-        except Exception as e:                     # noqa: BLE001 —— 超时/断连都要留记录
-            rec["outcome"] = "exception"
-            rec["error"] = f"{type(e).__name__}: {e}"
+    try:
+        async with client.stream(
+            "POST", url, json={"question": item["question"], "session_id": session_id}
+        ) as resp:
+            rec["http_status"] = resp.status_code
+            if resp.status_code != 200:
+                body = (await resp.aread()).decode("utf-8", "replace")[:300]
+                rec["outcome"] = "http_error"
+                rec["error"] = f"HTTP {resp.status_code}: {body}"
+            else:
+                # aiter_raw 而非 aiter_lines：后者会吃掉行尾，对 \r\n 语义模糊
+                async for chunk in resp.aiter_raw():
+                    parser.feed(chunk)
+                rec["n_frames"] = parser.n_frames
+                rec["n_tokens"] = parser.n_tokens
+                rec["route"] = parser.route
+                ok, outcome, err = classify_outcome(parser)
+                rec["ok"] = ok
+                rec["outcome"] = outcome
+                rec["error"] = err
+                if ok:
+                    rec["answer"] = parser.done.get("answer") or ""
+                    rec["cached"] = parser.done.get("cached")
+                    rec["elapsed_ms"] = parser.done.get("elapsed_ms")
+    except Exception as e:                         # noqa: BLE001 —— 超时/断连都要留记录
+        rec["outcome"] = "exception"
+        rec["error"] = f"{type(e).__name__}: {e}"
 
     rec["wall_ms"] = (time.perf_counter() - t0) * 1000.0
     if rec["elapsed_ms"] is not None:
@@ -341,43 +364,51 @@ async def chat_once(client, url: str, item: dict, session_id: str, sem) -> dict:
 async def run_http(url: str, items: list[dict], n: int, conc: int,
                    timeout_s: float, fresh_session: bool = True,
                    progress: bool = True) -> tuple[list[dict], float]:
-    """按并发上限打 n 条。返回 (records, 墙钟秒)。
+    """**闭循环 + 共享连接池**负载。
 
     session 语义：`fresh_session=True` 时每条独立 uuid —— 这是缓存路径的**硬前提**
     （`fresh_session = not await store.load_history(thread_id)`，见 `app.py:93-95`），
     共用 session 会让缓存永远不命中。
+
+    ## 两个坑都是实测踩出来的，缺一个读数就废
+
+    **(1) 闭循环，而不是「n 个任务抢 conc 个信号量」。**
+    第一版用信号量且 `t0` 记在抢信号量之前，于是 wall_ms 里混进了排队时间：
+    `/api/schema` 单发 22ms，`n=100, conc=10` 却测出 P50 = 21.9s，因为最后一批的
+    排队时间天然等于整轮墙钟，P50 必然 ≈ 总时长一半。数字看着完全正常，测的却是
+    「我的调度器排队多久」。
+
+    **(2) 共享一个 AsyncClient，而不是每条请求新建。**
+    第一版每条新建，注释理由是「避免连接池上限变成隐式限流器」——理由对，做法错：
+    实测 Windows 上**每个新建 client 的首次连接要 ~520ms 且互相串行化**。
+    10 并发打 `/api/schema`：独立 client 墙钟 5836ms（延迟 16/534/1108/.../5180 阶梯），
+    共享 client **24ms**，差 240 倍；同时 curl 10 并发全是 2.5ms——服务端本就没问题。
+    **连接池上限的正确处理是调大，不是绕开连接池。**
     """
     import httpx
 
-    limits = httpx.Limits(max_connections=conc + 8, max_keepalive_connections=conc + 8)
-    timeout = httpx.Timeout(timeout_s, connect=10.0)
-    sem = asyncio.Semaphore(conc)
-
-    async def worker(item: dict, sid: str) -> dict:
-        """每条请求自建 client。
-
-        共用一个 client 时，连接池上限（`max_connections`）会变成隐式限流器，
-        把「服务端慢」与「客户端排不上连接」混在一起，读数就没有归因价值了。
-        300 条规模下多开 socket 的开销可以忽略。
-        """
-        async with httpx.AsyncClient(
-            timeout=timeout, limits=limits, follow_redirects=False
-        ) as cli:
-            return await chat_once(cli, url, item, sid, sem)
-
-    tasks = []
-    for i in range(n):
-        item = items[i % len(items)]
-        sid = f"lt-{uuid.uuid4().hex}" if fresh_session else f"lt-fixed-{i}"
-        tasks.append(asyncio.create_task(worker(item, sid)))
-
-    t0 = time.perf_counter()
+    kwargs = client_kwargs(conc, timeout_s)
+    cursor = 0
     records: list[dict] = []
-    for fut in asyncio.as_completed(tasks):
-        records.append(await fut)
-        if progress and len(records) % 20 == 0:
-            print(f"  ... {len(records)}/{n}", flush=True)
-    return records, time.perf_counter() - t0
+
+    async def worker(cli) -> None:
+        nonlocal cursor
+        while True:
+            i = cursor
+            cursor += 1
+            if i >= n:
+                return
+            item = items[i % len(items)]
+            sid = f"lt-{uuid.uuid4().hex}" if fresh_session else f"lt-fixed-{i}"
+            records.append(await chat_once(cli, url, item, sid))
+            if progress and len(records) % 20 == 0:
+                print(f"  ... {len(records)}/{n}", flush=True)
+
+    async with httpx.AsyncClient(**kwargs) as cli:
+        t0 = time.perf_counter()
+        await asyncio.gather(*[worker(cli) for _ in range(min(conc, n))])
+        wall_s = time.perf_counter() - t0
+    return records, wall_s
 
 
 # ============================================================================
@@ -615,11 +646,8 @@ def cmd_ramp(a, url: str) -> int:
 # ============================================================================
 async def _single(url: str, item: dict, session_id: str, timeout_s: float) -> dict:
     import httpx
-    sem = asyncio.Semaphore(1)
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(timeout_s, connect=10.0), follow_redirects=False
-    ) as cli:
-        return await chat_once(cli, url, item, session_id, sem)
+    async with httpx.AsyncClient(**client_kwargs(1, timeout_s)) as cli:
+        return await chat_once(cli, url, item, session_id)
 
 
 def _answer_accuracy(records: list[dict]) -> float:
@@ -736,10 +764,15 @@ def main(argv: list[str] | None = None) -> int:
 
 def _health_ok(base_url: str, need_engine: bool) -> bool:
     """就绪闸门。`/api/chat` 在 engine 未就绪时直接抛 503（app.py:228-229），
-    不等就绪就开打，会把 503 记成业务错误率。"""
+    不等就绪就开打，会把 503 记成业务错误率。
+
+    这里也必须绕开环境代理：`urllib` 默认同样读 `HTTP_PROXY`，
+    而本机设了 Clash 代理 —— 探活走代理就会在「服务其实没起」时报出成功。
+    """
     import urllib.request
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with urllib.request.urlopen(base_url.rstrip("/") + "/health", timeout=10) as r:
+        with opener.open(base_url.rstrip("/") + "/health", timeout=10) as r:
             body = json.loads(r.read().decode("utf-8"))
     except Exception as e:                         # noqa: BLE001
         print(f"[FAIL] /health 不可达：{type(e).__name__}: {e}")
