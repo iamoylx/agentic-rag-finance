@@ -410,7 +410,8 @@ I3 是对外承诺的规格护栏，**不能替代该 bug 的回归测试**。
 | `tests/test_retrieval.py` | 6 | 检索层：`RERANK_ENABLED` 两分支**同型返回**、只编码缺失向量的增量重建、`search()` 返回形状契约 |
 | `tests/test_sse_gate.py` | 5 | SSE 协议层翻译逻辑 |
 | `tests/test_store.py` | 1 | 存储层 SQLite 回退路径 |
-| **合计** | **71 passed** | 约 17s（模型已缓存），其中一次性的模型导入占大头 |
+| `tests/test_bench_concurrency.py` | **19** | 压测脚本自身：SSE 帧解析（命名事件 vs 纯 data）、QPS/分位数计算、并发正确性判定 |
+| **合计** | **90 passed** | 约 17-26s（模型已缓存），其中一次性的模型导入占大头 |
 
 ### ⑥ 本次未完成（诚实清单）
 
