@@ -1,0 +1,331 @@
+{
+  "meta": {
+    "delay_ms": 20.0,
+    "fit_max": 20,
+    "n_full": 300,
+    "n_inject": 40,
+    "warm": 2,
+    "arms": [
+      "base",
+      "noappend",
+      "sleeplock",
+      "sleepoutside"
+    ],
+    "port": 8300,
+    "started_at": "2026-10-21 22:47:06",
+    "tag": "main"
+  },
+  "probe_append": {
+    "n": 50,
+    "p50_ms": 1.697,
+    "p95_ms": 2.671,
+    "mean_ms": 4.434
+  },
+  "deltas": {
+    "base": {
+      "1": 4.7,
+      "2": 4.77,
+      "5": 13.12,
+      "10": 32.06,
+      "20": 65.14,
+      "40": 115.98
+    },
+    "noappend": {
+      "1": 2.35,
+      "2": 3.55,
+      "5": 6.86,
+      "10": 15.59,
+      "20": 38.11,
+      "40": 174.05
+    },
+    "sleeplock": {
+      "1": 25.15,
+      "2": 44.5,
+      "4": 90.43,
+      "8": 181.53
+    },
+    "sleepoutside": {
+      "1": 25.21,
+      "2": 25.11,
+      "4": 24.7,
+      "8": 25.01
+    }
+  },
+  "detail": {
+    "base": {
+      "1": {
+        "n": 300,
+        "qps": 152.961,
+        "p50_ms": 6.43,
+        "delta_p50_ms": 4.7,
+        "elapsed_p50_ms": 2,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "2": {
+        "n": 300,
+        "qps": 302.378,
+        "p50_ms": 6.07,
+        "delta_p50_ms": 4.77,
+        "elapsed_p50_ms": 1,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "5": {
+        "n": 300,
+        "qps": 225.972,
+        "p50_ms": 15.43,
+        "delta_p50_ms": 13.12,
+        "elapsed_p50_ms": 2,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "10": {
+        "n": 300,
+        "qps": 255.152,
+        "p50_ms": 35.08,
+        "delta_p50_ms": 32.06,
+        "elapsed_p50_ms": 3,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "20": {
+        "n": 300,
+        "qps": 241.601,
+        "p50_ms": 67.85,
+        "delta_p50_ms": 65.14,
+        "elapsed_p50_ms": 3,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "40": {
+        "n": 300,
+        "qps": 205.463,
+        "p50_ms": 131.32,
+        "delta_p50_ms": 115.98,
+        "elapsed_p50_ms": 15,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      }
+    },
+    "noappend": {
+      "1": {
+        "n": 300,
+        "qps": 230.993,
+        "p50_ms": 4.16,
+        "delta_p50_ms": 2.35,
+        "elapsed_p50_ms": 2,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "2": {
+        "n": 300,
+        "qps": 317.195,
+        "p50_ms": 5.86,
+        "delta_p50_ms": 3.55,
+        "elapsed_p50_ms": 2,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "5": {
+        "n": 300,
+        "qps": 361.286,
+        "p50_ms": 11.39,
+        "delta_p50_ms": 6.86,
+        "elapsed_p50_ms": 4,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "10": {
+        "n": 300,
+        "qps": 259.045,
+        "p50_ms": 23.23,
+        "delta_p50_ms": 15.59,
+        "elapsed_p50_ms": 7,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "20": {
+        "n": 300,
+        "qps": 242.331,
+        "p50_ms": 55.08,
+        "delta_p50_ms": 38.11,
+        "elapsed_p50_ms": 15,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "40": {
+        "n": 300,
+        "qps": 146.684,
+        "p50_ms": 201.65,
+        "delta_p50_ms": 174.05,
+        "elapsed_p50_ms": 2,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      }
+    },
+    "sleeplock": {
+      "1": {
+        "n": 40,
+        "qps": 37.393,
+        "p50_ms": 26.28,
+        "delta_p50_ms": 25.15,
+        "elapsed_p50_ms": 1,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "2": {
+        "n": 40,
+        "qps": 41.775,
+        "p50_ms": 45.81,
+        "delta_p50_ms": 44.5,
+        "elapsed_p50_ms": 1,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "4": {
+        "n": 40,
+        "qps": 41.423,
+        "p50_ms": 91.35,
+        "delta_p50_ms": 90.43,
+        "elapsed_p50_ms": 1,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "8": {
+        "n": 40,
+        "qps": 38.488,
+        "p50_ms": 182.53,
+        "delta_p50_ms": 181.53,
+        "elapsed_p50_ms": 1,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      }
+    },
+    "sleepoutside": {
+      "1": {
+        "n": 40,
+        "qps": 37.949,
+        "p50_ms": 25.72,
+        "delta_p50_ms": 25.21,
+        "elapsed_p50_ms": 1,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "2": {
+        "n": 40,
+        "qps": 68.808,
+        "p50_ms": 26.78,
+        "delta_p50_ms": 25.11,
+        "elapsed_p50_ms": 2,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "4": {
+        "n": 40,
+        "qps": 124.185,
+        "p50_ms": 25.89,
+        "delta_p50_ms": 24.7,
+        "elapsed_p50_ms": 1,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      },
+      "8": {
+        "n": 40,
+        "qps": 185.178,
+        "p50_ms": 26.04,
+        "delta_p50_ms": 25.01,
+        "elapsed_p50_ms": 1,
+        "cached_rate": 1.0,
+        "err_rate": 0.0
+      }
+    }
+  },
+  "verdict": {
+    "delay_ms": 20.0,
+    "fit_max": 20,
+    "slopes": {
+      "base": 3.287048092868988,
+      "noappend": 1.8936733001658372,
+      "sleeplock": 22.50686956521739,
+      "sleepoutside": -0.02791304347826069
+    },
+    "points": {
+      "base": {
+        "1": 4.7,
+        "2": 4.77,
+        "5": 13.12,
+        "10": 32.06,
+        "20": 65.14,
+        "40": 115.98
+      },
+      "noappend": {
+        "1": 2.35,
+        "2": 3.55,
+        "5": 6.86,
+        "10": 15.59,
+        "20": 38.11,
+        "40": 174.05
+      },
+      "sleeplock": {
+        "1": 25.15,
+        "2": 44.5,
+        "4": 90.43,
+        "8": 181.53
+      },
+      "sleepoutside": {
+        "1": 25.21,
+        "2": 25.11,
+        "4": 24.7,
+        "8": 25.01
+      }
+    },
+    "excluded_by_fit_max": {
+      "base": [
+        40
+      ],
+      "noappend": [
+        40
+      ],
+      "sleeplock": [],
+      "sleepoutside": []
+    },
+    "anomalies": [
+      "c=40: noappend 174.1ms > base 116.0ms （去掉落库后 delta 反而变大 -> 该档读数已不在测服务端，剔除拟合）"
+    ],
+    "serial_write_model": {
+      "levels": [
+        1,
+        2,
+        5,
+        10,
+        20
+      ],
+      "delta_ms": {
+        "1": 2.35,
+        "2": 1.22,
+        "5": 6.26,
+        "10": 16.47,
+        "20": 27.03
+      },
+      "slope_ms_per_pending_write": 1.393,
+      "intercept_ms": 1.47,
+      "r2": 0.9771,
+      "holds": true,
+      "probe_p50_ms": 1.697,
+      "agreement_ratio": 0.821,
+      "agrees_with_probe": true
+    },
+    "lock_slope_gain": 22.535,
+    "serialization_threshold": 10.0,
+    "serialization_confirmed": true,
+    "write_share_by_concurrency": {
+      "1": 0.5,
+      "2": 0.256,
+      "5": 0.477,
+      "10": 0.514,
+      "20": 0.415
+    },
+    "conclusion": "落库按串行排队解释得通：Δ(base−noappend) 随待排写入数增长 1.393 ms/条（r²=0.9771，档位 [1, 2, 5, 10, 20]），与独立直测 append_turn 1.697ms 相差 18% -> 互证；临界区归因成立（锁内加 20.0ms 使斜率多涨 22.535 ms/并发，阈值 10.0）；落库占 delta 的 26%–51%（拟合区间内，逐档见 write_share_by_concurrency）；注意c=40: noappend 174.1ms > base 116.0ms （去掉落库后 delta 反而变大 -> 该档读数已不在测服务端，剔除拟合）。"
+  }
+}
