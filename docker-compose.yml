@@ -19,6 +19,16 @@ services:
     volumes:
       - ./models:/app/models:ro        # BGE-M3 / Reranker 权重（约 2GB，不进镜像）
       - ./data:/app/data               # 年报原始件 / 解析产物 / Chroma 索引
+      #
+      # ⚠️ 在 Windows + Docker Desktop 上，上面这条 ./data 绑定挂载会让检索慢到不可用。
+      #    D: 盘经 9p/virtiofs 进容器，SQLite 的随机小读 + fsync 每次都要跨文件系统往返。
+      #    同类问题在 P2 上量过（同一条 JOIN+GROUP BY）：
+      #        绑定挂载 16.716 s   vs   容器 ext4 0.118 s   —— 差 142 倍
+      #    Chroma 的 chroma.sqlite3 有 59 MB、data_level0.bin 39 MB，ANN 检索同样是随机读。
+      #    做法：只把 data/chroma 换成命名卷（放仓库外的 override 里，别改这里）：
+      #        volumes:
+      #          - p1-chroma:/app/data/chroma
+      #    models/ 是 4.3 GB 顺序读，留在绑定挂载上没问题，不用搬。
     depends_on:
       mysql:
         condition: service_healthy
