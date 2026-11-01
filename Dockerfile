@@ -52,6 +52,14 @@ COPY scripts/ ./scripts/
 COPY evals/ ./evals/
 COPY web/ ./web/
 COPY pytest.ini ./
+#
+# Dockerfile 与 docker-compose.yml 也要拷进来：`tests/test_api_bind.py` 会读它们
+# 来钉住「容器监听地址」这条契约（API_HOST=0.0.0.0 / 8300:8300 / CMD 跑哪个脚本）。
+#   - 不拷 → 容器内 pytest 直接 FileNotFoundError，CI 红在一个与被测行为无关的地方；
+#   - 改成「文件不在就 skip」更糟：闸门会静默缩小，本机绿、容器里其实什么都没验。
+#     （本仓库的 test_all_scan_dirs_present 就是为同一个理由存在的。）
+# 位置放在 tests/ 之前：这层几乎不变，让最常改的 tests/ 留在最后。
+COPY Dockerfile docker-compose.yml ./
 COPY tests/ ./tests/
 CMD ["python", "-m", "pytest", "-q"]
 
@@ -67,6 +75,16 @@ COPY web/ ./web/
 #      与 P2 不同，P1 的 src/ 在运行期不读 evals/ 下任何文件。
 # 要在容器里跑评测，用 `docker run -v $PWD/evals:/app/evals -v $PWD/data:/app/data ...`
 # 临时挂进去，别让它们常驻镜像。
+
+# 容器内必须监听 0.0.0.0。scripts/run_api.py 的默认值刻意是 127.0.0.1
+# （本机开发不需要对外开端口），照默认值跑会「docker ps 正常但宿主机连不上」——
+# 那不是端口映射的问题，是进程只绑了容器内的 loopback。
+#
+# 这个坑在 P2 上被抓到并修过，P1 漏了同一处：compose 里写了 `8300:8300`，
+# 但 docker.yml 只起 mysql/redis 两个 sidecar（api 要 4.3GB 模型，CI 里跑不了），
+# 所以 api 容器从来没在 CI 里起过，端口映射也就从未被真正验证过。
+ENV API_HOST=0.0.0.0 \
+    API_PORT=8300
 
 EXPOSE 8300
 CMD ["python", "scripts/run_api.py"]

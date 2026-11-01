@@ -1203,3 +1203,122 @@ python evals/exp_delta_split.py --arm base --fit-max 0   # 故意复现「拟合
 3. **计量器要有两把独立的尺。** 回归斜率（并发排队）和直接探针（单线程直调）走的是
    完全不同的路径。只有一把尺时，「1.9ms」既可能是锁，也可能是连接池抖动；
    两把尺都对上，才叫量到了。
+
+## T2-补 · api 容器的监听地址契约：把一条无法端到端验证的路径钉住（2026-11-01）✅
+
+### 事故：`docker ps` 全绿，宿主机一个字节都收不到
+
+第一次在本机（Windows 11 + Docker Desktop 4.97.0 + WSL2）真跑 compose 时：
+
+| 观察点 | 结果 |
+|---|---|
+| `docker ps` | `agentic-rag-finance-api-1  Up (healthy)` |
+| 容器内 `docker compose exec api curl 127.0.0.1:8300/health` | 200 |
+| **宿主机** `curl 127.0.0.1:8300/health` | **连接被拒（收不到任何字节）** |
+
+根因不在端口映射，在**进程绑的地址**：`scripts/run_api.py` 把 `host` 写死成
+`127.0.0.1`。compose 的 `8300:8300` 只负责把包送到容器网卡，进程只听容器内
+loopback，转发进来的连接就没人接。
+
+**比 bug 本身更值得记的一条**：healthcheck 是在**容器内**打 `127.0.0.1` 的，
+所以它反映的是「进程活着」，而「宿主机能不能连通」取决于「绑的是 loopback 还是
+通配地址」。两件事正交 —— 于是监控全绿、服务全死。
+
+修法（3 文件 / 28 增 2 删）：`host=os.getenv("API_HOST", "127.0.0.1")`，
+runtime 阶段加 `ENV API_HOST=0.0.0.0 API_PORT=8300`。默认值刻意保留 loopback：
+本机开发不该无意识把 8300 开到局域网。
+
+### 为什么这个 bug 能潜伏：CI 里 api 容器从来没起过
+
+`.github/workflows/docker.yml` 原来只跑 `docker compose up -d --wait mysql redis`，
+注释给的理由是「api 要 4.3 GB 权重」。实测证明**理由不完整，但结论是对的**——
+空卷启动先崩在更早的地方：
+
+```
+src/retrieval/bm25.py:95  self._bm25 = BM25Okapi(self._tokenized, k1=..., b=...)
+src/retrieval/bm25.py:52  self.avgdl = num_doc / self.corpus_size
+ZeroDivisionError: division by zero        # corpus_size == 0（空语料）
+```
+
+即：即便权重能下载，没有语料照样起不来；而 CI 塞一份 662 页的真实语料不现实。
+**「全栈起来再从宿主机 curl」这条路在 P1 上是物理堵死的**（P2 能这么做，是因为
+它的镜像自带合成 fixture 库）。
+
+### 替代方案：把契约钉在启动路径上，而不是放弃
+
+新增 `tests/test_api_bind.py`（7 条，跑在 ci.yml 里，**0.04 秒**）。核心手法是
+`runpy.run_path(..., run_name="__main__")` 执行 `scripts/run_api.py` **文件本身**，
+再 monkeypatch `uvicorn.run` 拦下**实际传进去的 kwargs**。
+
+为什么不用「抽个纯函数再断言它返回 0.0.0.0」：那只能证明函数正确，证明不了
+启动路径用了它（M6 的教训 —— 删掉主流程那行调用后，9 条叶子用例全绿）。
+
+| # | 用例 | 钉住的东西 |
+|---|---|---|
+| 1 | `test_container_env_binds_wildcard` | `API_HOST=0.0.0.0` → 进程真的绑通配地址 |
+| 2 | `test_local_env_keeps_loopback` | 未设时回落 127.0.0.1（防「修过头」写死 0.0.0.0） |
+| 3 | `test_port_env_is_respected_and_typed` | `API_PORT` 被读入且是 **int**（uvicorn 不吃字符串） |
+| 4 | `test_default_port_matches_compose_mapping` | 默认 8300，与映射一致 |
+| 5 | `test_dockerfile_bakes_wildcard_env` | Dockerfile 的 ENV 没被删（容器里 compose 不设 API_HOST） |
+| 6 | `test_dockerfile_cmd_runs_the_entrypoint_we_tested` | CMD 真的跑被测的那个脚本（防「测 A 跑 B」） |
+| 7 | `test_compose_publishes_the_same_port` | 映射与默认端口成对出现 |
+
+### 变异验证：每条断言都不是空转
+
+| 变异（只改一件事） | 结果 |
+|---|---|
+| ① `host=os.getenv(...)` → `host="127.0.0.1"`（还原原 bug） | **1 failed, 6 passed**，红在 `test_container_env_binds_wildcard` |
+| ② Dockerfile 删掉 `ENV API_HOST=0.0.0.0` | **1 failed, 6 passed**，红在 `test_dockerfile_bakes_wildcard_env` |
+
+两次变异都**只红一条**，且还原后 `run_api.py` / `Dockerfile` 的 md5 逐字节一致
+（`456357a…` / `6bd90c5…`），排除了「其它输出被顺手改动」。
+
+### 顺带补掉的一个真实缺口：容器里跑会因为文件不存在而红
+
+第 5–7 条要读 `Dockerfile` 与 `docker-compose.yml`，而 `p1-rag:test` 镜像原来
+**没拷这两个文件** → 容器内 pytest 会红在一个与被测行为无关的 `FileNotFoundError`。
+改成「文件不在就 skip」更糟：闸门会静默缩小扫描面（本仓库 `test_all_scan_dirs_present`
+就是为同一个理由存在的）。所以 Dockerfile 的 test 阶段显式加了：
+
+```dockerfile
+COPY Dockerfile docker-compose.yml ./
+```
+
+放在 `COPY tests/` 之前 —— 这层几乎不变，让最常改的 tests/ 留在最后一层。
+
+### 回归与验证（全部实跑）
+
+| 口径 | 结果 |
+|---|---|
+| 基线（改前） | 115 passed |
+| **本机 `pytest -q`** | **122 passed**（115 + 7），24.86s |
+| **容器内 `docker run --rm p1-rag:test`** | **122 passed**，10.31s |
+| `ruff --select E9,F63,F7,F82,F401,F811,F841,F821,F822,F823 .` | All checks passed |
+| `docker compose config --quiet` | 通过 |
+
+新增的 CI 步骤也在本地复刻跑过（用真实 runtime 镜像，`p1-rag:runtime` 同源）：
+
+```
+image API_HOST  = 0.0.0.0
+uvicorn.run host= 0.0.0.0  port= 8300
+OK: 容器内监听 0.0.0.0:8300
+```
+
+`docker.yml` 现在 9 步，顺序：构建 test 镜像 → 容器内 pytest → 构建 runtime →
+导入自检 → **容器内绑定断言** → compose 语法校验 → mysql/redis 健康 → 收尾。
+另外把 `scripts/**`、`web/**` 加进 push 触发路径（镜像的 CMD 与静态目录都在里面，
+改它们必须重验）。
+
+### 诚实清单
+
+1. **`8300:8300` 这个端口映射本身仍未端到端验证过。** 现在保证的是「进程绑
+   0.0.0.0 且端口一致」，不是「宿主机 curl 得到 200」。要补上，得先有一个不依赖
+   语料的启动模式（例如启动失败时降级为 `engine_ready=false` 并继续服务），
+   那会改变生产语义 —— 空语料从「崩溃暴露」变成「静默降级」，风险更大，
+   暂不做。
+2. 上述降级模式的取舍点在于：`docker compose up --wait` 会把「引擎没起来」
+   也当成 healthy。要做得对，得让 healthcheck 区分 503/200，而不是改启动行为。
+3. 第 5–7 条读的是**文本**而非解析后的配置。改 compose 结构（比如换成
+   `ports: - target: 8300 published: 8300` 长语法）会让第 7 条误红 —— 这是
+   刻意选择：误红要好过误绿，但要在改结构时记得同步。
+

@@ -13,6 +13,26 @@ name: Docker
 #   CI 验证的是「镜像里的代码 + 依赖能否跑通单测」，不是「索引重建」。
 #   索引与权重走卷挂载（见 docker-compose.yml），本来也不进镜像。
 #
+# ## api 容器为什么不在 CI 里 up（2026-11-01 实测确认，不是推测）
+#
+# 曾经的判断是「api 要 4.3 GB 权重，起不来」。实测了空卷启动，发现先崩在
+# 另一处、更早的地方 —— 空语料让 BM25 分母为 0：
+#
+#     src/retrieval/bm25.py:95  BM25Okapi(self._tokenized, k1=..., b=...)
+#     ZeroDivisionError: division by zero            # corpus_size == 0
+#
+# 也就是说，即便权重能下载，没有语料照样起不来；而给 CI 塞一份真语料
+# （662 页 × 3 家）本身就不现实。所以这条路是真的堵死。
+#
+# 代价是：`8300:8300` 这个端口映射**无法**在 CI 里被端到端验证。
+# 2026-11-01 真出过一次事故——`docker ps` 显示 api (healthy)，宿主机
+# `curl 127.0.0.1:8300/health` 一个字节都收不到，因为进程绑的是 127.0.0.1。
+# 替代方案不是放弃，而是把契约钉在启动路径上（见下面「生产镜像自检」两步）：
+#   · tests/test_api_bind.py —— 以 __main__ 身份执行 run_api.py，断言
+#     uvicorn.run 实际收到的 host/port；跑在 ci.yml 里，PR 上 0.2 秒出结论。
+#   · 本文件里的「容器内默认绑定 0.0.0.0」—— 在**真实生产镜像**里复核一遍，
+#     读的是镜像自带的 ENV，所以连「Dockerfile 那行 ENV 被删」也一起管。
+#
 # 触发：手动 / 推 main 且改动涉及镜像内容 / 每周一次兜底（防依赖上游漂移）
 
 on:
@@ -25,6 +45,8 @@ on:
       - requirements.txt
       - requirements-docker.txt
       - src/**
+      - scripts/**        # 镜像的 CMD 就是 scripts/run_api.py，改它必须重验
+      - web/**
       - tests/**
       - pytest.ini
       - .github/workflows/docker.yml
@@ -69,6 +91,27 @@ jobs:
           print('app 导入成功；路由数 =', len(m.app.routes))
           "
 
+      - name: 生产镜像自检：容器内默认绑定 0.0.0.0
+        # 「docker ps 全绿、宿主机连不上」那个事故的回归闸门。
+        # 不启动真实服务（那要语料，见文件头），而是以 __main__ 身份执行镜像里
+        # **真实的** scripts/run_api.py，拦下 uvicorn.run 看实际传进去的 host。
+        # 决定宿主机能否连通的唯一变量就是它：端口映射只负责把包送到容器网卡，
+        # 进程绑在 loopback 上就没人 listen。
+        # 关键细节：这里**不传** -e API_HOST，读的是镜像自带的 ENV，
+        # 所以这一步同时验证了「Dockerfile 那行 ENV 还在、且真的被读到」。
+        run: |
+          docker run --rm p1-rag:runtime python -c "
+          import os, runpy, uvicorn
+          seen = {}
+          uvicorn.run = lambda *a, **k: seen.update(k)
+          runpy.run_path('scripts/run_api.py', run_name='__main__')
+          print('image API_HOST  =', os.environ.get('API_HOST'))
+          print('uvicorn.run host=', seen.get('host'), ' port=', seen.get('port'))
+          assert seen.get('host') == '0.0.0.0', '进程绑的不是通配地址: ' + str(seen.get('host'))
+          assert seen.get('port') == 8300, '端口与 compose 的 8300:8300 不一致'
+          print('OK: 容器内监听 0.0.0.0:8300')
+          "
+
       - name: docker-compose.yml 语法与插值校验
         # 这一步很便宜但专治一类真事故：compose 会**先对整个文件做变量插值、
         # 再按 profile 过滤服务**，所以某个未启用服务里一个 `${X:?}` 就能让
@@ -77,12 +120,18 @@ jobs:
         run: docker compose config --quiet
 
       - name: mysql / redis 两个依赖服务能健康起来
-        # api 起不来是**预期的**：它要 ./models 里 4.3 GB 权重，CI 没有也不该有。
-        # 所以只验证不依赖权重的两个 sidecar，顺带证明 compose 的 depends_on
-        # 条件（mysql service_healthy）真的能达成。
+        # 为什么不带 api：空卷实测会崩在 BM25 建库（corpus_size == 0 → 除零，
+        # 详见文件头）。所以只验证不依赖语料与权重的两个 sidecar，顺带证明
+        # compose 的 depends_on 条件（mysql service_healthy）真的能达成。
+        #
+        # 注意这里**不能**写成 `up -d --wait`（不带服务名）：那样会把 api 拉进来，
+        # 而 api 在 CI 必然起不来，失败点会从「依赖服务不通」变成「api 崩了」，
+        # 报错信息指向完全无关的地方。写死服务名是有意的。
         run: |
           docker compose up -d --wait --wait-timeout 180 mysql redis
           docker compose ps
+          # api 的监听地址契约由上面「生产镜像自检」与 tests/test_api_bind.py 覆盖，
+          # 不在这里重复起容器。
 
       - name: 收尾
         if: always()
